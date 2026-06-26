@@ -102,7 +102,7 @@ public class JobController {
 
     // 6. Create a Photo Note for a Job
     @PostMapping("/{id}/photo-notes")
-    public ResponseEntity<PhotoNote> createPhotoNote(
+    public ResponseEntity<?> createPhotoNote(
             @PathVariable Long id,
             @RequestBody PhotoNote photoNote) {
         Optional<Job> jobOpt = jobRepository.findById(id);
@@ -110,6 +110,14 @@ public class JobController {
             return ResponseEntity.notFound().build();
         }
         Job job = jobOpt.get();
+
+        // Check for duplicate caption (case-insensitive trim)
+        boolean isDuplicate = job.getPhotoNotes().stream()
+                .anyMatch(n -> n.getCaption() != null && n.getCaption().trim().equalsIgnoreCase(photoNote.getCaption().trim()));
+        if (isDuplicate) {
+            return ResponseEntity.status(HttpStatus.CONFLICT).body("A photo note with this caption already exists for this job.");
+        }
+
         photoNote.setJob(job);
         PhotoNote savedNote = photoNoteRepository.save(photoNote);
         return ResponseEntity.status(HttpStatus.CREATED).body(savedNote);
@@ -228,7 +236,7 @@ public class JobController {
 
     // 12. Update an existing Photo Note
     @PutMapping("/photo-notes/{noteId}")
-    public ResponseEntity<PhotoNote> updatePhotoNote(
+    public ResponseEntity<?> updatePhotoNote(
             @PathVariable Long noteId,
             @RequestBody PhotoNote updateData) {
         
@@ -238,6 +246,14 @@ public class JobController {
         }
 
         PhotoNote photoNote = noteOpt.get();
+
+        // Check for duplicate caption (excluding current note ID)
+        boolean isDuplicate = photoNote.getJob().getPhotoNotes().stream()
+                .anyMatch(n -> !n.getId().equals(noteId) && n.getCaption() != null && n.getCaption().trim().equalsIgnoreCase(updateData.getCaption().trim()));
+        if (isDuplicate) {
+            return ResponseEntity.status(HttpStatus.CONFLICT).body("A photo note with this caption already exists for this job.");
+        }
+
         photoNote.setCaption(updateData.getCaption());
         photoNote.setNote(updateData.getNote());
         
