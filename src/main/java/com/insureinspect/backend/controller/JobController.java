@@ -263,6 +263,8 @@ public class JobController {
 
         photoNote.setCaption(updateData.getCaption());
         photoNote.setNote(updateData.getNote());
+        photoNote.setLocation(updateData.getLocation());
+        photoNote.setSubLocation(updateData.getSubLocation());
         
         PhotoNote savedNote = photoNoteRepository.save(photoNote);
         return ResponseEntity.ok(savedNote);

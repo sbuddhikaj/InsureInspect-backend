@@ -615,7 +615,14 @@ document.addEventListener('DOMContentLoaded', () => {
                                             <img src="${cleanP}" alt="${escapeHtml(note.caption)}" loading="lazy" style="width: 100%; height: 100%; object-fit: cover;">
                                         </div>
                                         <div class="photo-note-info">
-                                            <h4 style="font-size: 13px; font-weight: 600; margin: 0 0 3px 0;">${escapeHtml(note.caption)}</h4>
+                                            <h4 style="font-size: 13px; font-weight: 600; margin: 0 0 3px 0;">
+                                                ${escapeHtml(note.caption)}
+                                                ${(note.location || note.subLocation) ? `
+                                                    <span style="font-size: 10px; margin-left: 6px; padding: 2px 6px; background: var(--color-completed-glow); color: var(--color-completed); border-radius: 4px; font-weight: 600; display: inline-block; border: 1px solid rgba(16, 185, 129, 0.2);">
+                                                        <i class="fa-solid fa-location-crosshairs" style="font-size: 9px;"></i> 
+                                                        ${escapeHtml(note.location || '')} ${note.location && note.subLocation ? '•' : ''} ${escapeHtml(note.subLocation || '')}
+                                                    </span>` : ''}
+                                            </h4>
                                             <p style="font-size: 12px; color: var(--text-muted); margin: 0;">${escapeHtml(note.note || 'No additional note description.')}</p>
                                         </div>
                                     </div>
@@ -716,7 +723,14 @@ document.addEventListener('DOMContentLoaded', () => {
                                     <img src="${cleanUrl}" alt="${escapeHtml(note.caption)}" loading="lazy">
                                 </div>
                                 <div class="photo-note-info">
-                                    <h4>${escapeHtml(note.caption)}</h4>
+                                    <h4>
+                                        ${escapeHtml(note.caption)}
+                                        ${(note.location || note.subLocation) ? `
+                                            <span style="font-size: 10px; margin-left: 6px; padding: 2px 6px; background: var(--color-completed-glow); color: var(--color-completed); border-radius: 4px; font-weight: 600; display: inline-block; border: 1px solid rgba(16, 185, 129, 0.2);">
+                                                <i class="fa-solid fa-location-crosshairs" style="font-size: 9px;"></i> 
+                                                ${escapeHtml(note.location || '')} ${note.location && note.subLocation ? '•' : ''} ${escapeHtml(note.subLocation || '')}
+                                            </span>` : ''}
+                                    </h4>
                                     <p>${escapeHtml(note.note || 'No additional note description.')}</p>
                                 </div>
                             `;

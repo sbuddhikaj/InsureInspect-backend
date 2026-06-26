@@ -14,14 +14,22 @@ public class PhotoNote {
     private Long id;
 
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "job_id", nullable = false)
+    @JoinColumn(name = "job_id", nullable = true)
     @JsonIgnore
     private Job job;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "site_visit_id", nullable = true)
+    @JsonIgnore
+    private SiteVisit siteVisit;
 
     private String caption;
     
     @Column(length = 4000)
     private String note;
+
+    private String location;
+    private String subLocation;
 
     @OneToMany(mappedBy = "photoNote", cascade = CascadeType.ALL, orphanRemoval = true)
     private List<Photo> photos = new ArrayList<>();
@@ -32,6 +40,30 @@ public class PhotoNote {
         this.job = job;
         this.caption = caption;
         this.note = note;
+    }
+
+    public PhotoNote(SiteVisit siteVisit, String caption, String note) {
+        this.siteVisit = siteVisit;
+        this.job = siteVisit.getJob();
+        this.caption = caption;
+        this.note = note;
+    }
+
+    public PhotoNote(Job job, String caption, String note, String location, String subLocation) {
+        this.job = job;
+        this.caption = caption;
+        this.note = note;
+        this.location = location;
+        this.subLocation = subLocation;
+    }
+
+    public PhotoNote(SiteVisit siteVisit, String caption, String note, String location, String subLocation) {
+        this.siteVisit = siteVisit;
+        this.job = siteVisit.getJob();
+        this.caption = caption;
+        this.note = note;
+        this.location = location;
+        this.subLocation = subLocation;
     }
 
     // Getters and Setters
@@ -67,12 +99,36 @@ public class PhotoNote {
         this.note = note;
     }
 
+    public String getLocation() {
+        return location;
+    }
+
+    public void setLocation(String location) {
+        this.location = location;
+    }
+
+    public String getSubLocation() {
+        return subLocation;
+    }
+
+    public void setSubLocation(String subLocation) {
+        this.subLocation = subLocation;
+    }
+
     public List<Photo> getPhotos() {
         return photos;
     }
 
     public void setPhotos(List<Photo> photos) {
         this.photos = photos;
+    }
+
+    public SiteVisit getSiteVisit() {
+        return siteVisit;
+    }
+
+    public void setSiteVisit(SiteVisit siteVisit) {
+        this.siteVisit = siteVisit;
     }
 
     public void addPhoto(Photo photo) {
