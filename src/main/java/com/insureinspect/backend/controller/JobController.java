@@ -1,0 +1,149 @@
+package com.insureinspect.backend.controller;
+
+import com.insureinspect.backend.model.Job;
+import com.insureinspect.backend.model.Photo;
+import com.insureinspect.backend.model.PhotoNote;
+import com.insureinspect.backend.repository.JobRepository;
+import com.insureinspect.backend.repository.PhotoRepository;
+import com.insureinspect.backend.repository.PhotoNoteRepository;
+import com.insureinspect.backend.service.StorageService;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.*;
+import org.springframework.web.multipart.MultipartFile;
+
+import java.io.IOException;
+import java.time.LocalDateTime;
+import java.util.List;
+import java.util.Optional;
+
+@RestController
+@RequestMapping("/api/jobs")
+@CrossOrigin(origins = "*")
+public class JobController {
+
+    @Autowired
+    private JobRepository jobRepository;
+
+    @Autowired
+    private PhotoRepository photoRepository;
+
+    @Autowired
+    private PhotoNoteRepository photoNoteRepository;
+
+    @Autowired
+    private StorageService storageService;
+
+    // 1. Get all jobs (with optional filter by investigatorId)
+    @GetMapping
+    public List<Job> getAllJobs(@RequestParam(required = false) String investigatorId) {
+        if (investigatorId != null && !investigatorId.trim().isEmpty()) {
+            return jobRepository.findByInvestigatorId(investigatorId);
+        }
+        return jobRepository.findAll();
+    }
+
+    // 2. Get details of a single job
+    @GetMapping("/{id}")
+    public ResponseEntity<Job> getJobById(@PathVariable Long id) {
+        return jobRepository.findById(id)
+                .map(ResponseEntity::ok)
+                .orElse(ResponseEntity.notFound().build());
+    }
+
+    // 3. Dispatch/Create a new job
+    @PostMapping
+    public ResponseEntity<Job> createJob(@RequestBody Job job) {
+        job.setStatus("Pending");
+        job.setUpdatedAt(LocalDateTime.now());
+        Job savedJob = jobRepository.save(job);
+        return ResponseEntity.status(HttpStatus.CREATED).body(savedJob);
+    }
+
+    // 4. Update job status
+    @PutMapping("/{id}/status")
+    public ResponseEntity<Job> updateJobStatus(@PathVariable Long id, @RequestParam String status) {
+        Optional<Job> jobOpt = jobRepository.findById(id);
+        if (jobOpt.isEmpty()) {
+            return ResponseEntity.notFound().build();
+        }
+
+        Job job = jobOpt.get();
+        job.setStatus(status);
+        job.setUpdatedAt(LocalDateTime.now());
+        Job updatedJob = jobRepository.save(job);
+        return ResponseEntity.ok(updatedJob);
+    }
+
+    // 5. Submit investigation report (Transitions status to Completed)
+    @PostMapping("/{id}/report")
+    public ResponseEntity<Job> submitReport(
+            @PathVariable Long id,
+            @RequestBody Job reportData) {
+        
+        Optional<Job> jobOpt = jobRepository.findById(id);
+        if (jobOpt.isEmpty()) {
+            return ResponseEntity.notFound().build();
+        }
+
+        Job job = jobOpt.get();
+        job.setDamageSeverity(reportData.getDamageSeverity());
+        job.setStructuralDamage(reportData.isStructuralDamage());
+        job.setRoofDamage(reportData.isRoofDamage());
+        job.setWaterDamage(reportData.isWaterDamage());
+        job.setNotes(reportData.getNotes());
+        job.setStatus("Completed");
+        job.setUpdatedAt(LocalDateTime.now());
+        
+        Job updatedJob = jobRepository.save(job);
+        return ResponseEntity.ok(updatedJob);
+    }
+
+    // 6. Create a Photo Note for a Job
+    @PostMapping("/{id}/photo-notes")
+    public ResponseEntity<PhotoNote> createPhotoNote(
+            @PathVariable Long id,
+            @RequestBody PhotoNote photoNote) {
+        Optional<Job> jobOpt = jobRepository.findById(id);
+        if (jobOpt.isEmpty()) {
+            return ResponseEntity.notFound().build();
+        }
+        Job job = jobOpt.get();
+        photoNote.setJob(job);
+        PhotoNote savedNote = photoNoteRepository.save(photoNote);
+        return ResponseEntity.status(HttpStatus.CREATED).body(savedNote);
+    }
+
+    // 7. Upload and attach a photo to a specific Photo Note
+    @PostMapping("/photo-notes/{noteId}/photos")
+    public ResponseEntity<?> uploadPhotoNoteImage(
+            @PathVariable Long noteId,
+            @RequestParam("file") MultipartFile file) {
+        
+        Optional<PhotoNote> noteOpt = photoNoteRepository.findById(noteId);
+        if (noteOpt.isEmpty()) {
+            return ResponseEntity.status(HttpStatus.NOT_FOUND).body("PhotoNote not found with ID " + noteId);
+        }
+
+        PhotoNote photoNote = noteOpt.get();
+        try {
+            // Upload to S3/MinIO
+            String downloadUrl = storageService.uploadFile(photoNote.getJob().getId(), file);
+            String s3Key = "jobs/" + photoNote.getJob().getId() + "/notes/" + noteId + "/" + file.getOriginalFilename();
+
+            // Create and save Photo Entity
+            Photo photo = new Photo(photoNote, file.getOriginalFilename(), s3Key, downloadUrl);
+            Photo savedPhoto = photoRepository.save(photo);
+            
+            // Add reference to photo note
+            photoNote.addPhoto(savedPhoto);
+            photoNoteRepository.save(photoNote);
+
+            return ResponseEntity.status(HttpStatus.CREATED).body(savedPhoto);
+        } catch (Exception e) {
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body("Failed to upload photo: " + e.getMessage());
+        }
+    }
+}
