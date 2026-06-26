@@ -1,11 +1,28 @@
-// InsureInspect - Admin Dashboard Logic
+// InsureInspect - Admin Dashboard Logic (Updated with Auth & User Management)
 
 document.addEventListener('DOMContentLoaded', () => {
     // State Store
     let allJobs = [];
+    let allUsers = [];
     let selectedJob = null;
+    let selectedUser = null;
 
     // DOM Elements
+    const authOverlay = document.getElementById('auth-overlay');
+    const adminLoginForm = document.getElementById('admin-login-form');
+    const loginError = document.getElementById('login-error');
+    
+    const appContainer = document.querySelector('.app-container');
+    const adminDisplayName = document.getElementById('admin-display-name');
+    const btnLogout = document.getElementById('btn-logout');
+    
+    // View Panels & Navigation
+    const navDashboard = document.getElementById('nav-dashboard');
+    const navUsers = document.getElementById('nav-users');
+    const viewDashboard = document.getElementById('view-dashboard');
+    const viewUsers = document.getElementById('view-users');
+    
+    // Dashboard Elements
     const claimsTableBody = document.getElementById('claims-list-body');
     const searchInput = document.getElementById('search-input');
     const filterStatus = document.getElementById('filter-status');
@@ -23,6 +40,26 @@ document.addEventListener('DOMContentLoaded', () => {
     const btnCloseDispatch = document.getElementById('btn-close-dispatch');
     const btnCancelDispatch = document.getElementById('btn-cancel-dispatch');
     const dispatchForm = document.getElementById('dispatch-form');
+    const investigatorIdSelect = document.getElementById('investigatorId');
+    
+    // User Modal Elements
+    const userModal = document.getElementById('user-modal');
+    const userModalTitle = document.getElementById('user-modal-title');
+    const btnOpenUserModal = document.getElementById('btn-open-user-modal');
+    const btnCloseUser = document.getElementById('btn-close-user');
+    const btnCancelUser = document.getElementById('btn-cancel-user');
+    const userForm = document.getElementById('user-form');
+    const userIdField = document.getElementById('user-id-field');
+    const userUsernameInput = document.getElementById('user-username');
+    const userPasswordInput = document.getElementById('user-password');
+    const userFullnameInput = document.getElementById('user-fullname');
+    const userRoleSelect = document.getElementById('user-role');
+    const userStatusSelect = document.getElementById('user-status');
+    const userStatusGroup = document.getElementById('user-status-group');
+    const passwordHelp = document.getElementById('password-help');
+    
+    // Users List Body
+    const usersListBody = document.getElementById('users-list-body');
     
     // Details Drawer Elements
     const detailsDrawer = document.getElementById('details-drawer');
@@ -68,16 +105,104 @@ document.addEventListener('DOMContentLoaded', () => {
     // Refresh Nav Button
     const btnRefreshNav = document.getElementById('btn-refresh-nav');
 
-    // Init: Fetch Claims
-    fetchClaims();
+    // -------------------------------------------------------------
+    // Session / Auth Validation
+    // -------------------------------------------------------------
+    
+    function checkAuth() {
+        const storedUser = sessionStorage.getItem('admin_user');
+        if (storedUser) {
+            const user = JSON.parse(storedUser);
+            adminDisplayName.textContent = user.fullName;
+            authOverlay.classList.remove('active');
+            appContainer.style.display = 'flex';
+            
+            // Fetch database contents
+            fetchUsers().then(() => {
+                fetchClaims();
+            });
+        } else {
+            appContainer.style.display = 'none';
+            authOverlay.classList.add('active');
+        }
+    }
+
+    // Admin Login submission
+    adminLoginForm.addEventListener('submit', (e) => {
+        e.preventDefault();
+        loginError.style.display = 'none';
+        
+        const credentials = {
+            username: document.getElementById('login-username').value.trim(),
+            password: document.getElementById('login-password').value
+        };
+
+        fetch('/api/auth/login', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify(credentials)
+        })
+        .then(res => {
+            if (res.status === 401 || res.status === 403) {
+                throw new Error('Invalid username or password');
+            }
+            if (!res.ok) throw new Error('Authentication failed');
+            return res.json();
+        })
+        .then(user => {
+            if (user.role !== 'ADMIN') {
+                throw new Error('Access denied. Administrator role required.');
+            }
+            sessionStorage.setItem('admin_user', JSON.stringify(user));
+            checkAuth();
+        })
+        .catch(err => {
+            console.error(err);
+            loginError.textContent = err.message || 'Authentication error';
+            loginError.style.display = 'block';
+        });
+    });
+
+    // Admin Logout
+    btnLogout.addEventListener('click', (e) => {
+        e.preventDefault();
+        sessionStorage.clear();
+        window.location.reload();
+    });
+
+    // Initial check
+    checkAuth();
 
     // -------------------------------------------------------------
-    // API Calls
+    // View Swapping Panel controls
+    // -------------------------------------------------------------
+    navDashboard.addEventListener('click', (e) => {
+        e.preventDefault();
+        navDashboard.classList.add('active');
+        navUsers.classList.remove('active');
+        viewDashboard.style.display = 'block';
+        viewUsers.style.display = 'none';
+        fetchClaims();
+    });
+
+    navUsers.addEventListener('click', (e) => {
+        e.preventDefault();
+        navUsers.classList.add('active');
+        navDashboard.classList.remove('active');
+        viewUsers.style.display = 'block';
+        viewDashboard.style.display = 'none';
+        fetchUsers();
+    });
+
+    // -------------------------------------------------------------
+    // REST API calls
     // -------------------------------------------------------------
     
     // Fetch all claims from backend
     function fetchClaims() {
-        renderLoadingState();
+        renderClaimsLoading();
         fetch('/api/jobs')
             .then(res => {
                 if (!res.ok) throw new Error('Failed to fetch jobs');
@@ -90,11 +215,11 @@ document.addEventListener('DOMContentLoaded', () => {
             })
             .catch(err => {
                 console.error(err);
-                renderErrorState('Could not load inspection claims from server. Make sure the backend is running.');
+                renderClaimsError('Could not load inspection claims from server. Make sure the backend is running.');
             });
     }
 
-    // Fetch details of a single claim (includes populated photo notes and photos)
+    // Fetch details of a single claim
     function fetchClaimDetails(id) {
         fetch(`/api/jobs/${id}`)
             .then(res => {
@@ -111,6 +236,25 @@ document.addEventListener('DOMContentLoaded', () => {
             });
     }
 
+    // Fetch all users
+    function fetchUsers() {
+        renderUsersLoading();
+        return fetch('/api/users')
+            .then(res => {
+                if (!res.ok) throw new Error('Failed to fetch users');
+                return res.json();
+            })
+            .then(data => {
+                allUsers = data;
+                populateDropdowns(data);
+                renderUsersTable(data);
+            })
+            .catch(err => {
+                console.error(err);
+                renderUsersError('Could not load users list from server.');
+            });
+    }
+
     // Submit Dispatch (Create new job)
     dispatchForm.addEventListener('submit', (e) => {
         e.preventDefault();
@@ -123,7 +267,7 @@ document.addEventListener('DOMContentLoaded', () => {
             policyNumber: document.getElementById('policyNumber').value.trim(),
             claimDetails: document.getElementById('claimDetails').value.trim(),
             scheduledDate: document.getElementById('scheduledDate').value,
-            investigatorId: document.getElementById('investigatorId').value,
+            investigatorId: investigatorIdSelect.value,
         };
 
         fetch('/api/jobs', {
@@ -165,8 +309,7 @@ document.addEventListener('DOMContentLoaded', () => {
             return res.json();
         })
         .then(updatedJob => {
-            fetchClaims(); // refresh main table
-            // Refresh detail drawer
+            fetchClaims(); 
             fetchClaimDetails(jobId);
             alert(`Assignment updated successfully.`);
         })
@@ -179,7 +322,7 @@ document.addEventListener('DOMContentLoaded', () => {
     // Delete inspection claim
     btnDeleteJob.addEventListener('click', () => {
         if (!selectedJob) return;
-        if (!confirm(`Are you sure you want to permanently delete/cancel the claim for ${selectedJob.clientName}?`)) {
+        if (!confirm(`Are you sure you want to permanently delete the claim for ${selectedJob.clientName}?`)) {
             return;
         }
 
@@ -198,9 +341,103 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     });
 
+    // Create or Update User
+    userForm.addEventListener('submit', (e) => {
+        e.preventDefault();
+        
+        const userId = userIdField.value;
+        const isEditing = userId !== '';
+        
+        const userData = {
+            username: userUsernameInput.value.trim(),
+            fullName: userFullnameInput.value.trim(),
+            role: userRoleSelect.value,
+        };
+
+        if (userPasswordInput.value.trim() !== '') {
+            userData.password = userPasswordInput.value;
+        } else if (!isEditing) {
+            alert('Password is required for new users.');
+            return;
+        }
+
+        if (isEditing) {
+            userData.active = userStatusSelect.value === 'true';
+        }
+
+        const url = isEditing ? `/api/users/${userId}` : '/api/users';
+        const method = isEditing ? 'PUT' : 'POST';
+
+        fetch(url, {
+            method: method,
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify(userData)
+        })
+        .then(async res => {
+            if (!res.ok) {
+                const text = await res.text();
+                throw new Error(text || 'Operation failed');
+            }
+            return res.json();
+        })
+        .then(savedUser => {
+            closeUserModal();
+            fetchUsers();
+            alert(`User account ${isEditing ? 'updated' : 'created'} successfully.`);
+        })
+        .catch(err => {
+            console.error(err);
+            alert(`Failed: ${err.message}`);
+        });
+    });
+
+    // Delete User
+    function deleteUser(id, username) {
+        if (!confirm(`Are you sure you want to permanently delete user "${username}"?`)) {
+            return;
+        }
+
+        fetch(`/api/users/${id}`, {
+            method: 'DELETE'
+        })
+        .then(res => {
+            if (!res.ok) throw new Error('Failed to delete user');
+            fetchUsers();
+            alert('User account deleted.');
+        })
+        .catch(err => {
+            console.error(err);
+            alert('Failed to delete user.');
+        });
+    }
+
     // -------------------------------------------------------------
     // UI Rendering
     // -------------------------------------------------------------
+
+    // Populate Dynamic dropdowns with loaded users
+    function populateDropdowns(users) {
+        const investigators = users.filter(u => u.role === 'INVESTIGATOR' && u.active);
+        
+        // 1. Dispatch Modal Investigator Dropdown
+        investigatorIdSelect.innerHTML = investigators.map(u => 
+            `<option value="${u.username}">${escapeHtml(u.fullName)} (${escapeHtml(u.username)})</option>`
+        ).join('');
+        
+        // 2. Drawer Reassignment Dropdown
+        reassignInvestigator.innerHTML = investigators.map(u => 
+            `<option value="${u.username}">${escapeHtml(u.fullName)}</option>`
+        ).join('');
+        
+        // 3. Claims Filter Investigator Dropdown
+        const selectedFilterVal = filterInvestigator.value;
+        filterInvestigator.innerHTML = '<option value="All">All Investigators</option>' + investigators.map(u => 
+            `<option value="${u.username}">${escapeHtml(u.fullName)}</option>`
+        ).join('');
+        filterInvestigator.value = selectedFilterVal;
+    }
 
     // Update Top Stat Metrics
     function updateStats(jobs) {
@@ -214,7 +451,6 @@ document.addEventListener('DOMContentLoaded', () => {
     function renderClaimsTable(jobs) {
         claimsTableBody.innerHTML = '';
         
-        // Filter jobs based on filter values and search string
         const filteredJobs = jobs.filter(job => {
             // Status Filter
             const matchesStatus = filterStatus.value === 'All' || job.status.toLowerCase() === filterStatus.value.toLowerCase();
@@ -248,11 +484,10 @@ document.addEventListener('DOMContentLoaded', () => {
         filteredJobs.forEach(job => {
             const tr = document.createElement('tr');
             
-            // Format investigator ID for display
-            const investigatorDisplay = job.investigatorId === 'investigator_1' ? 'John (Investigator 1)' :
-                                       job.investigatorId === 'investigator_2' ? 'Alice (Investigator 2)' : job.investigatorId;
+            // Resolve investigator name from list
+            const user = allUsers.find(u => u.username === job.investigatorId);
+            const investigatorDisplay = user ? user.fullName : job.investigatorId;
             
-            // Class for status badge
             const statusClass = job.status.toLowerCase();
             const statusDisplay = job.status.replace('_', ' ');
 
@@ -266,9 +501,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 <td><button class="btn btn-secondary btn-icon-only view-details-row-btn" data-id="${job.id}"><i class="fa-solid fa-eye"></i> View</button></td>
             `;
 
-            // Row click triggers Drawer details opening
             tr.addEventListener('click', (e) => {
-                // Ignore if clicking action button directly (handled separately)
                 if (e.target.closest('.btn')) return;
                 openDetailsDrawer(job.id);
             });
@@ -276,7 +509,6 @@ document.addEventListener('DOMContentLoaded', () => {
             claimsTableBody.appendChild(tr);
         });
 
-        // Add action button listeners
         document.querySelectorAll('.view-details-row-btn').forEach(btn => {
             btn.addEventListener('click', () => {
                 openDetailsDrawer(btn.getAttribute('data-id'));
@@ -294,37 +526,30 @@ document.addEventListener('DOMContentLoaded', () => {
         detailAddress.textContent = job.address;
         detailClaimDetails.textContent = job.claimDetails;
         
-        // Status Badge class update
         detailStatusBadge.className = `badge ${job.status.toLowerCase()}`;
         detailStatusBadge.textContent = job.status.replace('_', ' ');
         
-        // Setup reassignment fields
         reassignJobId.value = job.id;
         reassignInvestigator.value = job.investigatorId;
         reassignDate.value = job.scheduledDate;
         
-        // Show/Hide Findings Checklist & Photo gallery based on status
         const isNotPending = job.status !== 'Pending';
         if (isNotPending) {
             findingsSection.style.display = 'block';
             
-            // Severity Label
             const sev = job.damageSeverity || 'None';
             detailSeverity.textContent = sev;
             detailSeverity.className = `badge severity-${sev.toLowerCase()}`;
             
-            // Checklist Checklist Icons
             updateChecklistIcon(checkStructural, job.structuralDamage);
             updateChecklistIcon(checkRoof, job.roofDamage);
             updateChecklistIcon(checkWater, job.waterDamage);
             
-            // Field Notes
             detailNotes.textContent = job.notes && job.notes.trim() !== '' ? job.notes : 'No notes submitted.';
         } else {
             findingsSection.style.display = 'none';
         }
 
-        // Photo Gallery notes populate
         if (isNotPending && job.photoNotes && job.photoNotes.length > 0) {
             gallerySection.style.display = 'block';
             photoNotesList.innerHTML = '';
@@ -332,10 +557,8 @@ document.addEventListener('DOMContentLoaded', () => {
             let totalPhotos = 0;
 
             job.photoNotes.forEach(note => {
-                // It is possible a note has multiple photos or none
                 note.photos.forEach(photo => {
                     totalPhotos++;
-                    
                     const item = document.createElement('div');
                     item.className = 'photo-note-item';
                     item.innerHTML = `
@@ -348,7 +571,6 @@ document.addEventListener('DOMContentLoaded', () => {
                         </div>
                     `;
                     
-                    // Lightbox image click trigger
                     item.querySelector('.photo-thumbnail-container').addEventListener('click', function() {
                         openLightbox(this.getAttribute('data-src'), this.getAttribute('data-caption'));
                     });
@@ -376,8 +598,62 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
+    // Render Users Table
+    function renderUsersTable(users) {
+        usersListBody.innerHTML = '';
+        
+        if (users.length === 0) {
+            usersListBody.innerHTML = `
+                <tr>
+                    <td colspan="6" class="empty-state">
+                        <i class="fa-solid fa-users" style="font-size: 24px; display: block; margin-bottom: 10px; color: var(--text-muted);"></i>
+                        No users configured.
+                    </td>
+                </tr>
+            `;
+            return;
+        }
+
+        users.forEach(user => {
+            const tr = document.createElement('tr');
+            
+            const roleClass = user.role.toLowerCase() === 'admin' ? 'role-admin' : 'role-investigator';
+            const roleText = user.role.replace('_', ' ');
+
+            const statusClass = user.active ? 'status-active' : 'status-suspended';
+            const statusText = user.active ? 'Active' : 'Suspended';
+
+            tr.innerHTML = `
+                <td><strong>#${user.id}</strong></td>
+                <td>${escapeHtml(user.username)}</td>
+                <td>${escapeHtml(user.fullName)}</td>
+                <td><span class="badge ${roleClass}">${roleText}</span></td>
+                <td><span class="badge ${statusClass}">${statusText}</span></td>
+                <td class="actions-cell">
+                    <button class="btn btn-secondary btn-icon-only edit-user-btn" data-id="${user.id}"><i class="fa-solid fa-user-pen"></i> Edit</button>
+                    <button class="btn btn-danger btn-icon-only delete-user-btn" data-id="${user.id}" data-username="${escapeHtml(user.username)}"><i class="fa-solid fa-trash"></i></button>
+                </td>
+            `;
+
+            usersListBody.appendChild(tr);
+        });
+
+        // Add action button listeners for users
+        document.querySelectorAll('.edit-user-btn').forEach(btn => {
+            btn.addEventListener('click', () => {
+                openEditUserModal(btn.getAttribute('data-id'));
+            });
+        });
+
+        document.querySelectorAll('.delete-user-btn').forEach(btn => {
+            btn.addEventListener('click', () => {
+                deleteUser(btn.getAttribute('data-id'), btn.getAttribute('data-username'));
+            });
+        });
+    }
+
     // Loading/Error utilities
-    function renderLoadingState() {
+    function renderClaimsLoading() {
         claimsTableBody.innerHTML = `
             <tr>
                 <td colspan="7" class="loading-state">
@@ -387,10 +663,31 @@ document.addEventListener('DOMContentLoaded', () => {
         `;
     }
 
-    function renderErrorState(message) {
+    function renderClaimsError(message) {
         claimsTableBody.innerHTML = `
             <tr>
                 <td colspan="7" class="empty-state" style="color: var(--color-danger);">
+                    <i class="fa-solid fa-circle-exclamation" style="font-size: 26px; display: block; margin-bottom: 10px;"></i>
+                    ${message}
+                </td>
+            </tr>
+        `;
+    }
+
+    function renderUsersLoading() {
+        usersListBody.innerHTML = `
+            <tr>
+                <td colspan="6" class="loading-state">
+                    <i class="fa-solid fa-circle-notch fa-spin"></i> Loading users list...
+                </td>
+            </tr>
+        `;
+    }
+
+    function renderUsersError(message) {
+        usersListBody.innerHTML = `
+            <tr>
+                <td colspan="6" class="empty-state" style="color: var(--color-danger);">
                     <i class="fa-solid fa-circle-exclamation" style="font-size: 26px; display: block; margin-bottom: 10px;"></i>
                     ${message}
                 </td>
@@ -402,13 +699,11 @@ document.addEventListener('DOMContentLoaded', () => {
     // Event Triggers & Overlay Controls
     // -------------------------------------------------------------
 
-    // Modal Control
+    // Dispatch Modal Control
     btnOpenDispatch.addEventListener('click', () => {
-        // Set default date to tomorrow
         const tomorrow = new Date();
         tomorrow.setDate(tomorrow.getDate() + 1);
         document.getElementById('scheduledDate').value = tomorrow.toISOString().split('T')[0];
-        
         dispatchModal.classList.add('active');
     });
 
@@ -420,10 +715,51 @@ document.addEventListener('DOMContentLoaded', () => {
         dispatchForm.reset();
     }
 
+    // User Modal Control
+    btnOpenUserModal.addEventListener('click', () => {
+        userIdField.value = '';
+        userForm.reset();
+        userModalTitle.innerHTML = '<i class="fa-solid fa-user-plus"></i> Add New User';
+        userUsernameInput.removeAttribute('disabled');
+        userPasswordInput.setAttribute('required', 'true');
+        passwordHelp.textContent = 'Password must be at least 4 characters.';
+        userStatusGroup.style.display = 'none';
+        userModal.classList.add('active');
+    });
+
+    function openEditUserModal(id) {
+        const user = allUsers.find(u => u.id == id);
+        if (!user) return;
+        
+        selectedUser = user;
+        userIdField.value = user.id;
+        userUsernameInput.value = user.username;
+        userUsernameInput.setAttribute('disabled', 'true');
+        userFullnameInput.value = user.fullName;
+        userRoleSelect.value = user.role;
+        userStatusSelect.value = String(user.active);
+        
+        userPasswordInput.removeAttribute('required');
+        userPasswordInput.value = '';
+        passwordHelp.textContent = 'Leave password blank if you do not want to change it.';
+        userStatusGroup.style.display = 'block';
+        
+        userModalTitle.innerHTML = '<i class="fa-solid fa-user-pen"></i> Edit User Settings';
+        userModal.classList.add('active');
+    }
+
+    btnCloseUser.addEventListener('click', closeUserModal);
+    btnCancelUser.addEventListener('click', closeUserModal);
+
+    function closeUserModal() {
+        userModal.classList.remove('active');
+        userForm.reset();
+        selectedUser = null;
+    }
+
     // Drawer Control
     function openDetailsDrawer(id) {
         detailsDrawer.classList.add('active');
-        // Clear old display values
         detailTitle.textContent = "Loading claim details...";
         detailClientName.textContent = "Loading...";
         detailPolicy.textContent = "Loading...";
@@ -460,7 +796,11 @@ document.addEventListener('DOMContentLoaded', () => {
     // Refresh Button Sync
     btnRefreshNav.addEventListener('click', (e) => {
         e.preventDefault();
-        fetchClaims();
+        if (viewUsers.style.display === 'block') {
+            fetchUsers();
+        } else {
+            fetchClaims();
+        }
     });
 
     // Filter changes trigger table redraw

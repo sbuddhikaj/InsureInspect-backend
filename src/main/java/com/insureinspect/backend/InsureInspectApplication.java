@@ -1,7 +1,9 @@
 package com.insureinspect.backend;
 
 import com.insureinspect.backend.model.Job;
+import com.insureinspect.backend.model.User;
 import com.insureinspect.backend.repository.JobRepository;
+import com.insureinspect.backend.repository.UserRepository;
 import org.springframework.boot.CommandLineRunner;
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
@@ -17,8 +19,15 @@ public class InsureInspectApplication {
     }
 
     @Bean
-    public CommandLineRunner seedDatabase(JobRepository jobRepository) {
+    public CommandLineRunner seedDatabase(JobRepository jobRepository, UserRepository userRepository) {
         return args -> {
+            if (userRepository.count() == 0) {
+                userRepository.save(new User("admin", "admin123", "System Administrator", "ADMIN"));
+                userRepository.save(new User("investigator_1", "password", "John Doe", "INVESTIGATOR"));
+                userRepository.save(new User("investigator_2", "password", "Alice Smith", "INVESTIGATOR"));
+                System.out.println("--- Seeded database with default users for testing ---");
+            }
+
             if (jobRepository.count() == 0) {
                 // Job 1
                 Job job1 = new Job();
