@@ -67,16 +67,63 @@ public class StorageService {
         // Generate a unique S3 key
         String s3Key = "jobs/" + jobId + "/" + UUID.randomUUID().toString() + extension;
 
+        // Determine concrete Content-Type
+        String contentType = file.getContentType();
+        if (contentType == null || contentType.trim().isEmpty() || contentType.equals("image/*") || contentType.equals("application/octet-stream")) {
+            contentType = "image/jpeg"; // default fallback
+            String lowerName = originalFilename != null ? originalFilename.toLowerCase() : "";
+            if (lowerName.endsWith(".png")) {
+                contentType = "image/png";
+            } else if (lowerName.endsWith(".gif")) {
+                contentType = "image/gif";
+            } else if (lowerName.endsWith(".webp")) {
+                contentType = "image/webp";
+            } else if (lowerName.endsWith(".bmp")) {
+                contentType = "image/bmp";
+            }
+        }
+
         PutObjectRequest putObjectRequest = PutObjectRequest.builder()
                 .bucket(bucket)
                 .key(s3Key)
-                .contentType(file.getContentType())
+                .contentType(contentType)
                 .acl(ObjectCannedACL.PUBLIC_READ) // Set public-read access for the individual object
                 .build();
 
         s3Client.putObject(putObjectRequest, RequestBody.fromInputStream(file.getInputStream(), file.getSize()));
 
-        // Return the full download URL
-        return endpoint + "/" + bucket + "/" + s3Key;
+        // Return the relative proxy path
+        return "/api/jobs/photos/" + s3Key;
+    }
+
+    public S3ObjectInfo downloadFile(String s3Key) throws IOException {
+        GetObjectRequest getObjectRequest = GetObjectRequest.builder()
+                .bucket(bucket)
+                .key(s3Key)
+                .build();
+        
+        try (var response = s3Client.getObject(getObjectRequest)) {
+            byte[] bytes = response.readAllBytes();
+            String contentType = response.response().contentType();
+            return new S3ObjectInfo(bytes, contentType);
+        }
+    }
+
+    public static class S3ObjectInfo {
+        private final byte[] bytes;
+        private final String contentType;
+
+        public S3ObjectInfo(byte[] bytes, String contentType) {
+            this.bytes = bytes;
+            this.contentType = contentType;
+        }
+
+        public byte[] getBytes() {
+            return bytes;
+        }
+
+        public String getContentType() {
+            return contentType;
+        }
     }
 }

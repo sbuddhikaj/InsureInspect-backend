@@ -177,4 +177,71 @@ public class JobController {
         jobRepository.deleteById(id);
         return ResponseEntity.noContent().build();
     }
+
+    // 10. Proxy/Download a photo from S3/MinIO
+    @GetMapping("/photos/**")
+    public ResponseEntity<byte[]> getPhoto(jakarta.servlet.http.HttpServletRequest request) {
+        String path = request.getRequestURI();
+        // Extract everything after "/api/jobs/photos/" and normalize any multiple slashes
+        String s3Key = path.substring(path.indexOf("/photos/") + 8).replaceAll("/+", "/");
+        if (s3Key.startsWith("/")) {
+            s3Key = s3Key.substring(1);
+        }
+
+        try {
+            com.insureinspect.backend.service.StorageService.S3ObjectInfo objectInfo = storageService.downloadFile(s3Key);
+            
+            // Resolve content-type (S3 stored type or extension-based lookup)
+            String contentType = objectInfo.getContentType();
+            if (contentType == null || contentType.trim().isEmpty() || contentType.equals("image/*") || contentType.equals("application/octet-stream")) {
+                contentType = "image/jpeg"; // default fallback
+                String lowerKey = s3Key.toLowerCase();
+                if (lowerKey.endsWith(".png")) {
+                    contentType = "image/png";
+                } else if (lowerKey.endsWith(".gif")) {
+                    contentType = "image/gif";
+                } else if (lowerKey.endsWith(".webp")) {
+                    contentType = "image/webp";
+                } else if (lowerKey.endsWith(".bmp")) {
+                    contentType = "image/bmp";
+                }
+            }
+
+            return ResponseEntity.ok()
+                    .contentType(org.springframework.http.MediaType.parseMediaType(contentType))
+                    .body(objectInfo.getBytes());
+        } catch (Exception e) {
+            return ResponseEntity.status(HttpStatus.NOT_FOUND).body(null);
+        }
+    }
+
+    // 11. Delete a Photo Note
+    @DeleteMapping("/photo-notes/{noteId}")
+    public ResponseEntity<Void> deletePhotoNote(@PathVariable Long noteId) {
+        Optional<PhotoNote> noteOpt = photoNoteRepository.findById(noteId);
+        if (noteOpt.isEmpty()) {
+            return ResponseEntity.notFound().build();
+        }
+        photoNoteRepository.deleteById(noteId);
+        return ResponseEntity.noContent().build();
+    }
+
+    // 12. Update an existing Photo Note
+    @PutMapping("/photo-notes/{noteId}")
+    public ResponseEntity<PhotoNote> updatePhotoNote(
+            @PathVariable Long noteId,
+            @RequestBody PhotoNote updateData) {
+        
+        Optional<PhotoNote> noteOpt = photoNoteRepository.findById(noteId);
+        if (noteOpt.isEmpty()) {
+            return ResponseEntity.notFound().build();
+        }
+
+        PhotoNote photoNote = noteOpt.get();
+        photoNote.setCaption(updateData.getCaption());
+        photoNote.setNote(updateData.getNote());
+        
+        PhotoNote savedNote = photoNoteRepository.save(photoNote);
+        return ResponseEntity.ok(savedNote);
+    }
 }

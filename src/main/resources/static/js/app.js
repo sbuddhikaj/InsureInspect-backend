@@ -557,19 +557,29 @@ document.addEventListener('DOMContentLoaded', () => {
             let totalPhotos = 0;
 
             job.photoNotes.forEach(note => {
-                note.photos.forEach(photo => {
-                    totalPhotos++;
-                    const item = document.createElement('div');
-                    item.className = 'photo-note-item';
-                    item.innerHTML = `
-                        <div class="photo-thumbnail-container" data-src="${photo.downloadUrl}" data-caption="${escapeHtml(note.caption)}">
-                            <img src="${photo.downloadUrl}" alt="${escapeHtml(note.caption)}" loading="lazy">
-                        </div>
-                        <div class="photo-note-info">
-                            <h4>${escapeHtml(note.caption)}</h4>
-                            <p>${escapeHtml(note.note || 'No additional note description.')}</p>
-                        </div>
-                    `;
+            note.photos.forEach(photo => {
+                totalPhotos++;
+                
+                let cleanUrl = photo.downloadUrl || '';
+                if (cleanUrl.includes('://')) {
+                    const proto = cleanUrl.split('://')[0];
+                    const rest = cleanUrl.split('://')[1];
+                    cleanUrl = proto + '://' + rest.replace(/\/+/g, '/');
+                } else {
+                    cleanUrl = cleanUrl.replace(/\/+/g, '/');
+                }
+
+                const item = document.createElement('div');
+                item.className = 'photo-note-item';
+                item.innerHTML = `
+                    <div class="photo-thumbnail-container" data-src="${cleanUrl}" data-caption="${escapeHtml(note.caption)}">
+                        <img src="${cleanUrl}" alt="${escapeHtml(note.caption)}" loading="lazy">
+                    </div>
+                    <div class="photo-note-info">
+                        <h4>${escapeHtml(note.caption)}</h4>
+                        <p>${escapeHtml(note.note || 'No additional note description.')}</p>
+                    </div>
+                `;
                     
                     item.querySelector('.photo-thumbnail-container').addEventListener('click', function() {
                         openLightbox(this.getAttribute('data-src'), this.getAttribute('data-caption'));
