@@ -36,9 +36,15 @@ public class Job {
     private String notes;
     
     private LocalDateTime updatedAt;
+    
+    private Double latitude;
+    private Double longitude;
 
     @OneToMany(mappedBy = "job", cascade = CascadeType.ALL, orphanRemoval = true)
     private List<PhotoNote> photoNotes = new ArrayList<>();
+
+    @OneToMany(mappedBy = "job", cascade = CascadeType.ALL, orphanRemoval = true)
+    private List<SiteVisit> siteVisits = new ArrayList<>();
 
     public Job() {
         this.status = "Pending";
@@ -182,8 +188,37 @@ public class Job {
         this.photoNotes = photoNotes;
     }
 
+    public Double getLatitude() {
+        return latitude;
+    }
+
+    public void setLatitude(Double latitude) {
+        this.latitude = latitude;
+    }
+
+    public Double getLongitude() {
+        return longitude;
+    }
+
+    public void setLongitude(Double longitude) {
+        this.longitude = longitude;
+    }
+
     public void addPhotoNote(PhotoNote photoNote) {
         photoNotes.add(photoNote);
         photoNote.setJob(this);
+    }
+
+    public List<SiteVisit> getSiteVisits() {
+        return siteVisits;
+    }
+
+    public void setSiteVisits(List<SiteVisit> siteVisits) {
+        this.siteVisits = siteVisits;
+    }
+
+    public void addSiteVisit(SiteVisit siteVisit) {
+        siteVisits.add(siteVisit);
+        siteVisit.setJob(this);
     }
 }

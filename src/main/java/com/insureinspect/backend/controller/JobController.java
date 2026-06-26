@@ -3,9 +3,11 @@ package com.insureinspect.backend.controller;
 import com.insureinspect.backend.model.Job;
 import com.insureinspect.backend.model.Photo;
 import com.insureinspect.backend.model.PhotoNote;
+import com.insureinspect.backend.model.SiteVisit;
 import com.insureinspect.backend.repository.JobRepository;
 import com.insureinspect.backend.repository.PhotoRepository;
 import com.insureinspect.backend.repository.PhotoNoteRepository;
+import com.insureinspect.backend.repository.SiteVisitRepository;
 import com.insureinspect.backend.service.StorageService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
@@ -31,6 +33,9 @@ public class JobController {
 
     @Autowired
     private PhotoNoteRepository photoNoteRepository;
+
+    @Autowired
+    private SiteVisitRepository siteVisitRepository;
 
     @Autowired
     private StorageService storageService;
@@ -93,6 +98,8 @@ public class JobController {
         job.setRoofDamage(reportData.isRoofDamage());
         job.setWaterDamage(reportData.isWaterDamage());
         job.setNotes(reportData.getNotes());
+        job.setLatitude(reportData.getLatitude());
+        job.setLongitude(reportData.getLongitude());
         job.setStatus("Completed");
         job.setUpdatedAt(LocalDateTime.now());
         
@@ -259,5 +266,77 @@ public class JobController {
         
         PhotoNote savedNote = photoNoteRepository.save(photoNote);
         return ResponseEntity.ok(savedNote);
+    }
+
+    // 13. Create a Site Visit for a Job
+    @PostMapping("/{jobId}/site-visits")
+    public ResponseEntity<?> createSiteVisit(
+            @PathVariable Long jobId,
+            @RequestBody SiteVisit siteVisit) {
+        Optional<Job> jobOpt = jobRepository.findById(jobId);
+        if (jobOpt.isEmpty()) {
+            return ResponseEntity.notFound().build();
+        }
+        Job job = jobOpt.get();
+        siteVisit.setJob(job);
+        
+        // Save the site visit
+        SiteVisit savedVisit = siteVisitRepository.save(siteVisit);
+        
+        // Also update job's updatedAt timestamp
+        job.setUpdatedAt(LocalDateTime.now());
+        jobRepository.save(job);
+        
+        return ResponseEntity.status(HttpStatus.CREATED).body(savedVisit);
+    }
+
+    // 14. Upload site photo for a site visit
+    @PostMapping("/site-visits/{visitId}/photo")
+    public ResponseEntity<?> uploadSitePhoto(
+            @PathVariable Long visitId,
+            @RequestParam("file") MultipartFile file) {
+        Optional<SiteVisit> visitOpt = siteVisitRepository.findById(visitId);
+        if (visitOpt.isEmpty()) {
+            return ResponseEntity.status(HttpStatus.NOT_FOUND).body("SiteVisit not found with ID " + visitId);
+        }
+        SiteVisit visit = visitOpt.get();
+        try {
+            // Upload to S3/MinIO
+            String downloadUrl = storageService.uploadFile(visit.getJob().getId(), file);
+            String s3Key = "jobs/" + visit.getJob().getId() + "/visits/" + visitId + "/" + file.getOriginalFilename();
+
+            visit.setSitePhotoUrl(downloadUrl);
+            visit.setSitePhotoS3Key(s3Key);
+            SiteVisit savedVisit = siteVisitRepository.save(visit);
+
+            return ResponseEntity.ok(savedVisit);
+        } catch (Exception e) {
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body("Failed to upload site photo: " + e.getMessage());
+        }
+    }
+
+    // 15. Create a Photo Note for a Site Visit
+    @PostMapping("/site-visits/{visitId}/photo-notes")
+    public ResponseEntity<?> createVisitPhotoNote(
+            @PathVariable Long visitId,
+            @RequestBody PhotoNote photoNote) {
+        Optional<SiteVisit> visitOpt = siteVisitRepository.findById(visitId);
+        if (visitOpt.isEmpty()) {
+            return ResponseEntity.notFound().build();
+        }
+        SiteVisit visit = visitOpt.get();
+
+        // Check for duplicate caption (case-insensitive trim) within this visit's notes
+        boolean isDuplicate = visit.getPhotoNotes().stream()
+                .anyMatch(n -> n.getCaption() != null && n.getCaption().trim().equalsIgnoreCase(photoNote.getCaption().trim()));
+        if (isDuplicate) {
+            return ResponseEntity.status(HttpStatus.CONFLICT).body("A photo note with this caption already exists for this site visit.");
+        }
+
+        photoNote.setSiteVisit(visit);
+        photoNote.setJob(visit.getJob());
+        PhotoNote savedNote = photoNoteRepository.save(photoNote);
+        return ResponseEntity.status(HttpStatus.CREATED).body(savedNote);
     }
 }

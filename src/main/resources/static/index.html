@@ -366,7 +366,7 @@
                     </form>
                 </div>
 
-                <!-- Findings & Checklist -->
+                <!-- Findings & Checklist (Legacy) -->
                 <div class="drawer-section border-top" id="findings-section" style="display: none;">
                     <h3><i class="fa-solid fa-clipboard-check"></i> Inspection Findings</h3>
                     <div class="severity-box mb-3">
@@ -390,9 +390,17 @@
                     </div>
                 </div>
 
-                <!-- Photo Notes Gallery -->
+                <!-- Site Visits History (New model) -->
+                <div class="drawer-section border-top" id="site-visits-section" style="display: none;">
+                    <h3><i class="fa-solid fa-clock-rotate-left"></i> Site Visits History (<span id="visit-count">0</span>)</h3>
+                    <div class="site-visits-list" id="site-visits-list">
+                        <!-- Dynamic visit items will load here -->
+                    </div>
+                </div>
+
+                <!-- Photo Notes Gallery (Legacy) -->
                 <div class="drawer-section border-top" id="gallery-section" style="display: none;">
-                    <h3><i class="fa-solid fa-images"></i> Inspection Photo Gallery (<span id="photo-count">0</span>)</h3>
+                    <h3><i class="fa-solid fa-images"></i> Legacy Job Photo Gallery (<span id="photo-count">0</span>)</h3>
                     <div class="photo-notes-list" id="photo-notes-list">
                         <!-- Dynamic items will load here -->
                     </div>

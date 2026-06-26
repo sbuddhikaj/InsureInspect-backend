@@ -534,68 +534,210 @@ document.addEventListener('DOMContentLoaded', () => {
         reassignDate.value = job.scheduledDate;
         
         const isNotPending = job.status !== 'Pending';
-        if (isNotPending) {
-            findingsSection.style.display = 'block';
-            
-            const sev = job.damageSeverity || 'None';
-            detailSeverity.textContent = sev;
-            detailSeverity.className = `badge severity-${sev.toLowerCase()}`;
-            
-            updateChecklistIcon(checkStructural, job.structuralDamage);
-            updateChecklistIcon(checkRoof, job.roofDamage);
-            updateChecklistIcon(checkWater, job.waterDamage);
-            
-            detailNotes.textContent = job.notes && job.notes.trim() !== '' ? job.notes : 'No notes submitted.';
-        } else {
-            findingsSection.style.display = 'none';
+        
+        // Dynamic fetch of new DOM elements
+        const siteVisitsSection = document.getElementById('site-visits-section');
+        const visitCount = document.getElementById('visit-count');
+        const siteVisitsList = document.getElementById('site-visits-list');
+
+        function normalizePhotoUrl(url) {
+            if (!url) return '';
+            let cleanUrl = url;
+            if (cleanUrl.includes('://')) {
+                const proto = cleanUrl.split('://')[0];
+                const rest = cleanUrl.split('://')[1];
+                cleanUrl = proto + '://' + rest.replace(/\/+/g, '/');
+            } else {
+                cleanUrl = cleanUrl.replace(/\/+/g, '/');
+            }
+            return cleanUrl;
         }
 
-        if (isNotPending && job.photoNotes && job.photoNotes.length > 0) {
-            gallerySection.style.display = 'block';
-            photoNotesList.innerHTML = '';
+        if (isNotPending && job.siteVisits && job.siteVisits.length > 0) {
+            // New multi-visit model
+            siteVisitsSection.style.display = 'block';
+            findingsSection.style.display = 'none';
+            gallerySection.style.display = 'none'; // hide legacy sections
             
-            let totalPhotos = 0;
+            visitCount.textContent = job.siteVisits.length;
+            siteVisitsList.innerHTML = '';
 
-            job.photoNotes.forEach(note => {
-            note.photos.forEach(photo => {
-                totalPhotos++;
-                
-                let cleanUrl = photo.downloadUrl || '';
-                if (cleanUrl.includes('://')) {
-                    const proto = cleanUrl.split('://')[0];
-                    const rest = cleanUrl.split('://')[1];
-                    cleanUrl = proto + '://' + rest.replace(/\/+/g, '/');
-                } else {
-                    cleanUrl = cleanUrl.replace(/\/+/g, '/');
+            job.siteVisits.forEach((sv, idx) => {
+                const svCard = document.createElement('div');
+                svCard.className = 'visit-card-details';
+                svCard.style.border = '1px solid var(--border)';
+                svCard.style.borderRadius = '10px';
+                svCard.style.padding = '15px';
+                svCard.style.marginBottom = '15px';
+                svCard.style.background = 'var(--bg-card)';
+
+                let firstVisitInfoHtml = '';
+                if (sv.siteRoomType) {
+                    let sitePhotoHtml = '';
+                    if (sv.sitePhotoUrl) {
+                        const cleanPhoto = normalizePhotoUrl(sv.sitePhotoUrl);
+                        sitePhotoHtml = `
+                            <div class="site-photo-container mt-2 mb-2" style="max-width: 150px; cursor: pointer;" data-src="${cleanPhoto}" data-caption="Site Photo: ${escapeHtml(sv.siteRoomType)}">
+                                <img src="${cleanPhoto}" alt="Site Photo" style="max-width: 150px; border-radius: 8px; border: 1px solid var(--border);" class="site-photo-thumbnail">
+                            </div>
+                        `;
+                    }
+                    firstVisitInfoHtml = `
+                        <div class="first-visit-info-box mt-2 mb-3" style="padding: 10px; background: rgba(0, 0, 0, 0.02); border-radius: 6px;">
+                            <span class="info-label" style="font-weight:600; color:var(--primary); font-size:12px;"><i class="fa-solid fa-house-laptop"></i> First Visit Details</span>
+                            <div style="font-size: 13px; margin-top: 5px;">
+                                <strong>Room Type:</strong> ${escapeHtml(sv.siteRoomType)}<br/>
+                                <strong>Other Areas:</strong> ${escapeHtml(sv.otherLocationsData || 'N/A')}
+                            </div>
+                            ${sitePhotoHtml}
+                        </div>
+                    `;
                 }
 
-                const item = document.createElement('div');
-                item.className = 'photo-note-item';
-                item.innerHTML = `
-                    <div class="photo-thumbnail-container" data-src="${cleanUrl}" data-caption="${escapeHtml(note.caption)}">
-                        <img src="${cleanUrl}" alt="${escapeHtml(note.caption)}" loading="lazy">
+                // Checklists HTML
+                const structIcon = sv.structuralDamage ? '<i class="fa-solid fa-circle-check icon-yes"></i>' : '<i class="fa-solid fa-circle-xmark icon-no"></i>';
+                const roofIcon = sv.roofDamage ? '<i class="fa-solid fa-circle-check icon-yes"></i>' : '<i class="fa-solid fa-circle-xmark icon-no"></i>';
+                const waterIcon = sv.waterDamage ? '<i class="fa-solid fa-circle-check icon-yes"></i>' : '<i class="fa-solid fa-circle-xmark icon-no"></i>';
+                
+                const sev = sv.damageSeverity || 'Low';
+
+                // Photo Notes for this visit
+                let svGalleryHtml = '';
+                if (sv.photoNotes && sv.photoNotes.length > 0) {
+                    let visitPhotosListHtml = '';
+                    sv.photoNotes.forEach(note => {
+                        if (note.photos) {
+                            note.photos.forEach(p => {
+                                const cleanP = normalizePhotoUrl(p.downloadUrl);
+                                visitPhotosListHtml += `
+                                    <div class="photo-note-item mt-2" style="display: flex; gap: 12px; border: 1px solid var(--border); padding: 8px; border-radius: 8px; margin-bottom: 8px; background: rgba(0,0,0,0.01);">
+                                        <div class="photo-thumbnail-container" data-src="${cleanP}" data-caption="${escapeHtml(note.caption)}" style="cursor: pointer; width: 60px; height: 60px; flex-shrink: 0; overflow: hidden; border-radius: 6px; border: 1px solid var(--border);">
+                                            <img src="${cleanP}" alt="${escapeHtml(note.caption)}" loading="lazy" style="width: 100%; height: 100%; object-fit: cover;">
+                                        </div>
+                                        <div class="photo-note-info">
+                                            <h4 style="font-size: 13px; font-weight: 600; margin: 0 0 3px 0;">${escapeHtml(note.caption)}</h4>
+                                            <p style="font-size: 12px; color: var(--text-muted); margin: 0;">${escapeHtml(note.note || 'No additional note description.')}</p>
+                                        </div>
+                                    </div>
+                                `;
+                            });
+                        }
+                    });
+                    svGalleryHtml = `
+                        <div class="visit-photos-gallery mt-3">
+                            <span class="info-label" style="font-weight:600; color:var(--primary); font-size:12px;"><i class="fa-solid fa-images"></i> Visit Photos</span>
+                            <div class="photo-notes-list" style="margin-top: 8px; display: flex; flex-direction: column;">
+                                ${visitPhotosListHtml}
+                            </div>
+                        </div>
+                    `;
+                }
+
+                const gpsHtml = (sv.latitude && sv.longitude) ? 
+                    `<span style="font-size: 11px; color: var(--text-muted); float: right;"><i class="fa-solid fa-location-dot"></i> GPS: ${sv.latitude.toFixed(6)}, ${sv.longitude.toFixed(6)}</span>` : 
+                    `<span style="font-size: 11px; color: var(--text-muted); float: right;"><i class="fa-solid fa-location-dot"></i> No GPS</span>`;
+
+                svCard.innerHTML = `
+                    <div style="font-weight: 600; font-size: 14px; margin-bottom: 8px; color: var(--primary);">
+                        Visit #${idx + 1}
+                        <span class="badge severity-${sev.toLowerCase()}" style="margin-left: 8px; font-size: 10px; padding: 2px 6px;">${sev.toUpperCase()}</span>
+                        ${gpsHtml}
                     </div>
-                    <div class="photo-note-info">
-                        <h4>${escapeHtml(note.caption)}</h4>
-                        <p>${escapeHtml(note.note || 'No additional note description.')}</p>
+                    <div style="font-size: 12px; color: var(--text-muted); margin-bottom: 8px;">
+                        <i class="fa-regular fa-calendar-days"></i> Checked: ${sv.visitDate}
                     </div>
-                `;
                     
-                    item.querySelector('.photo-thumbnail-container').addEventListener('click', function() {
+                    ${firstVisitInfoHtml}
+
+                    <div class="checklist-grid" style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; font-size: 12px; margin-top: 10px; border: 1px solid var(--border); padding: 8px; border-radius: 6px; background: rgba(0,0,0,0.01);">
+                        <div>${structIcon} Structural</div>
+                        <div>${roofIcon} Roof</div>
+                        <div>${waterIcon} Water</div>
+                    </div>
+
+                    <div class="info-full mt-3" style="font-size: 13px;">
+                        <span class="info-label" style="font-weight:600; color:var(--primary); font-size:12px;">Field Notes</span>
+                        <div class="details-box notes-box" style="padding: 8px; font-size: 13px; min-height: auto; margin-top: 4px; background: rgba(0,0,0,0.01);">
+                            ${escapeHtml(sv.notes || 'No notes submitted for this visit.')}
+                        </div>
+                    </div>
+
+                    ${svGalleryHtml}
+                `;
+
+                // Hook up click to expand zoom lightboxes inside this card
+                svCard.querySelectorAll('[data-src]').forEach(el => {
+                    el.addEventListener('click', function() {
                         openLightbox(this.getAttribute('data-src'), this.getAttribute('data-caption'));
                     });
-                    
-                    photoNotesList.appendChild(item);
                 });
+
+                siteVisitsList.appendChild(svCard);
             });
-            
-            photoCount.textContent = totalPhotos;
-            if (totalPhotos === 0) {
-                photoNotesList.innerHTML = '<p class="text-secondary" style="font-size: 13px; text-align: center; padding: 10px;">Checklist started but no photo attachments uploaded yet.</p>';
-            }
         } else {
-            gallerySection.style.display = 'none';
-            photoCount.textContent = '0';
+            // Hide visits history
+            siteVisitsSection.style.display = 'none';
+
+            // Show findings (Legacy model)
+            if (isNotPending) {
+                findingsSection.style.display = 'block';
+                
+                const sev = job.damageSeverity || 'None';
+                detailSeverity.textContent = sev;
+                detailSeverity.className = `badge severity-${sev.toLowerCase()}`;
+                
+                updateChecklistIcon(checkStructural, job.structuralDamage);
+                updateChecklistIcon(checkRoof, job.roofDamage);
+                updateChecklistIcon(checkWater, job.waterDamage);
+                
+                detailNotes.textContent = job.notes && job.notes.trim() !== '' ? job.notes : 'No notes submitted.';
+            } else {
+                findingsSection.style.display = 'none';
+            }
+
+            // Show gallery (Legacy model)
+            if (isNotPending && job.photoNotes && job.photoNotes.length > 0) {
+                gallerySection.style.display = 'block';
+                photoNotesList.innerHTML = '';
+                
+                let totalPhotos = 0;
+
+                job.photoNotes.forEach(note => {
+                    if (note.photos) {
+                        note.photos.forEach(photo => {
+                            totalPhotos++;
+                            
+                            let cleanUrl = normalizePhotoUrl(photo.downloadUrl);
+
+                            const item = document.createElement('div');
+                            item.className = 'photo-note-item';
+                            item.innerHTML = `
+                                <div class="photo-thumbnail-container" data-src="${cleanUrl}" data-caption="${escapeHtml(note.caption)}">
+                                    <img src="${cleanUrl}" alt="${escapeHtml(note.caption)}" loading="lazy">
+                                </div>
+                                <div class="photo-note-info">
+                                    <h4>${escapeHtml(note.caption)}</h4>
+                                    <p>${escapeHtml(note.note || 'No additional note description.')}</p>
+                                </div>
+                            `;
+                            
+                            item.querySelector('.photo-thumbnail-container').addEventListener('click', function() {
+                                openLightbox(this.getAttribute('data-src'), this.getAttribute('data-caption'));
+                            });
+                            
+                            photoNotesList.appendChild(item);
+                        });
+                    }
+                });
+                
+                photoCount.textContent = totalPhotos;
+                if (totalPhotos === 0) {
+                    photoNotesList.innerHTML = '<p class="text-secondary" style="font-size: 13px; text-align: center; padding: 10px;">Checklist started but no photo attachments uploaded yet.</p>';
+                }
+            } else {
+                gallerySection.style.display = 'none';
+                photoCount.textContent = '0';
+            }
         }
     }
 
