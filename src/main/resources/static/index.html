@@ -1,0 +1,305 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>InsureInspect - Admin Dashboard</title>
+    <!-- Google Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <!-- FontAwesome Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- Custom CSS -->
+    <link rel="stylesheet" href="css/styles.css">
+</head>
+<body>
+    <div class="app-container">
+        <!-- Sidebar Navigation -->
+        <aside class="sidebar">
+            <div class="logo-area">
+                <i class="fa-solid fa-shield-halved logo-icon"></i>
+                <span class="logo-text">Insure<span>Inspect</span></span>
+            </div>
+            <nav class="nav-menu">
+                <a href="#" class="nav-item active"><i class="fa-solid fa-chart-line"></i> Dashboard</a>
+                <a href="#" class="nav-item" id="btn-refresh-nav"><i class="fa-solid fa-arrows-rotate"></i> Sync Data</a>
+            </nav>
+            <div class="sidebar-footer">
+                <div class="user-profile">
+                    <div class="avatar"><i class="fa-solid fa-user-tie"></i></div>
+                    <div class="profile-info">
+                        <span class="name">Admin Panel</span>
+                        <span class="role">Claims Manager</span>
+                    </div>
+                </div>
+            </div>
+        </aside>
+
+        <!-- Main Content Area -->
+        <main class="main-content">
+            <!-- Header -->
+            <header class="main-header">
+                <div class="header-title">
+                    <h1>Overview</h1>
+                    <p class="subtitle">Real-time Home Insurance Inspections & Claims Dispatch</p>
+                </div>
+                <div class="header-actions">
+                    <button class="btn btn-primary" id="btn-open-dispatch"><i class="fa-solid fa-circle-plus"></i> Dispatch New Job</button>
+                </div>
+            </header>
+
+            <!-- Metrics Cards -->
+            <section class="metrics-grid">
+                <div class="card metric-card total">
+                    <div class="card-icon"><i class="fa-solid fa-briefcase"></i></div>
+                    <div class="card-data">
+                        <h3 id="stat-total">0</h3>
+                        <p>Total Claims</p>
+                    </div>
+                </div>
+                <div class="card metric-card pending">
+                    <div class="card-icon"><i class="fa-solid fa-clock"></i></div>
+                    <div class="card-data">
+                        <h3 id="stat-pending">0</h3>
+                        <p>Pending Dispatch</p>
+                    </div>
+                </div>
+                <div class="card metric-card progress">
+                    <div class="card-icon"><i class="fa-solid fa-spinner"></i></div>
+                    <div class="card-data">
+                        <h3 id="stat-progress">0</h3>
+                        <p>In Progress</p>
+                    </div>
+                </div>
+                <div class="card metric-card completed">
+                    <div class="card-icon"><i class="fa-solid fa-circle-check"></i></div>
+                    <div class="card-data">
+                        <h3 id="stat-completed">0</h3>
+                        <p>Completed</p>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Claims List Section -->
+            <section class="card content-card">
+                <div class="card-header">
+                    <h2>Active Insurance Inspection Claims</h2>
+                    <div class="filters-row">
+                        <div class="search-box">
+                            <i class="fa-solid fa-magnifying-glass"></i>
+                            <input type="text" id="search-input" placeholder="Search client name, title, address...">
+                        </div>
+                        <div class="filter-group">
+                            <select id="filter-status">
+                                <option value="All">All Statuses</option>
+                                <option value="Pending">Pending</option>
+                                <option value="In_Progress">In Progress</option>
+                                <option value="Completed">Completed</option>
+                            </select>
+                            <select id="filter-investigator">
+                                <option value="All">All Investigators</option>
+                                <option value="investigator_1">Investigator 1 (John)</option>
+                                <option value="investigator_2">Investigator 2 (Alice)</option>
+                            </select>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="table-responsive">
+                    <table class="claims-table" id="claims-table">
+                        <thead>
+                            <tr>
+                                <th>Claim ID</th>
+                                <th>Client Name</th>
+                                <th>Inspection Title</th>
+                                <th>Scheduled Date</th>
+                                <th>Assigned Investigator</th>
+                                <th>Status</th>
+                                <th>Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody id="claims-list-body">
+                            <tr>
+                                <td colspan="7" class="loading-state">
+                                    <i class="fa-solid fa-circle-notch fa-spin"></i> Loading inspection claims...
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </section>
+        </main>
+    </div>
+
+    <!-- Dispatch Modal Dialog -->
+    <div class="modal-overlay" id="dispatch-modal">
+        <div class="modal-card">
+            <div class="modal-header">
+                <h2><i class="fa-solid fa-circle-plus"></i> Dispatch Inspection Claim</h2>
+                <button class="btn-close" id="btn-close-dispatch"><i class="fa-solid fa-xmark"></i></button>
+            </div>
+            <form id="dispatch-form">
+                <div class="form-row">
+                    <div class="form-group">
+                        <label for="title">Inspection Title</label>
+                        <input type="text" id="title" placeholder="e.g. Kitchen Fire Damaged Ceiling" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="policyNumber">Policy Number</label>
+                        <input type="text" id="policyNumber" placeholder="e.g. POL-882711" required>
+                    </div>
+                </div>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label for="clientName">Client Full Name</label>
+                        <input type="text" id="clientName" placeholder="e.g. Jane Doe" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="phone">Contact Phone</label>
+                        <input type="tel" id="phone" placeholder="e.g. +1-555-0199" required>
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label for="address">Property Address</label>
+                    <input type="text" id="address" placeholder="e.g. 123 Maple Street, Springfield, IL" required>
+                </div>
+                <div class="form-group">
+                    <label for="claimDetails">Claim / Damage Details</label>
+                    <textarea id="claimDetails" rows="3" placeholder="Describe the damage, cause, and elements to inspect..." required></textarea>
+                </div>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label for="scheduledDate">Scheduled Inspection Date</label>
+                        <input type="date" id="scheduledDate" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="investigatorId">Assign Investigator</label>
+                        <select id="investigatorId" required>
+                            <option value="investigator_1">Investigator 1 (John)</option>
+                            <option value="investigator_2">Investigator 2 (Alice)</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" id="btn-cancel-dispatch">Cancel</button>
+                    <button type="submit" class="btn btn-primary">Dispatch Job</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Details View Sliding Drawer -->
+    <div class="drawer-overlay" id="details-drawer">
+        <div class="drawer-panel">
+            <div class="drawer-header">
+                <div>
+                    <span class="badge" id="detail-status-badge">Pending</span>
+                    <h2 id="detail-title">Claim Title</h2>
+                </div>
+                <button class="btn-close" id="btn-close-drawer"><i class="fa-solid fa-xmark"></i></button>
+            </div>
+            
+            <div class="drawer-content">
+                <!-- Info Section -->
+                <div class="drawer-section">
+                    <h3><i class="fa-solid fa-address-card"></i> Customer & Policy Information</h3>
+                    <div class="info-grid">
+                        <div class="info-item">
+                            <span class="info-label">Client Name</span>
+                            <span class="info-value" id="detail-client-name">Loading...</span>
+                        </div>
+                        <div class="info-item">
+                            <span class="info-label">Policy Number</span>
+                            <span class="info-value" id="detail-policy">Loading...</span>
+                        </div>
+                        <div class="info-item">
+                            <span class="info-label">Phone</span>
+                            <span class="info-value" id="detail-phone">Loading...</span>
+                        </div>
+                        <div class="info-item">
+                            <span class="info-label">Updated At</span>
+                            <span class="info-value" id="detail-updated">Loading...</span>
+                        </div>
+                    </div>
+                    <div class="info-full">
+                        <span class="info-label">Property Address</span>
+                        <span class="info-value" id="detail-address">Loading...</span>
+                    </div>
+                    <div class="info-full mt-3">
+                        <span class="info-label">Claim Details</span>
+                        <div class="details-box" id="detail-claim-details">Loading...</div>
+                    </div>
+                </div>
+
+                <!-- Reassignment Panel -->
+                <div class="drawer-section border-top">
+                    <h3><i class="fa-solid fa-user-pen"></i> Assign / Schedule Investigator</h3>
+                    <form id="reassign-form" class="reassign-inline-form">
+                        <input type="hidden" id="reassign-job-id">
+                        <div class="form-group">
+                            <label for="reassign-investigator">Investigator</label>
+                            <select id="reassign-investigator">
+                                <option value="investigator_1">Investigator 1 (John)</option>
+                                <option value="investigator_2">Investigator 2 (Alice)</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label for="reassign-date">Inspection Date</label>
+                            <input type="date" id="reassign-date">
+                        </div>
+                        <button type="submit" class="btn btn-secondary btn-icon-only" title="Save Assignment">
+                            <i class="fa-solid fa-floppy-disk"></i> Save
+                        </button>
+                    </form>
+                </div>
+
+                <!-- Findings & Checklist -->
+                <div class="drawer-section border-top" id="findings-section" style="display: none;">
+                    <h3><i class="fa-solid fa-clipboard-check"></i> Inspection Findings</h3>
+                    <div class="severity-box mb-3">
+                        <span class="info-label">Damage Severity Level</span>
+                        <span class="badge" id="detail-severity">None</span>
+                    </div>
+                    <div class="checklist-grid">
+                        <div class="checklist-item" id="check-structural">
+                            <i class="fa-solid fa-circle-xmark icon-no"></i> Structural Damage
+                        </div>
+                        <div class="checklist-item" id="check-roof">
+                            <i class="fa-solid fa-circle-xmark icon-no"></i> Roof Damage
+                        </div>
+                        <div class="checklist-item" id="check-water">
+                            <i class="fa-solid fa-circle-xmark icon-no"></i> Water Damage
+                        </div>
+                    </div>
+                    <div class="info-full mt-3">
+                        <span class="info-label">Investigator Field Notes</span>
+                        <div class="details-box notes-box" id="detail-notes">No notes submitted.</div>
+                    </div>
+                </div>
+
+                <!-- Photo Notes Gallery -->
+                <div class="drawer-section border-top" id="gallery-section" style="display: none;">
+                    <h3><i class="fa-solid fa-images"></i> Inspection Photo Gallery (<span id="photo-count">0</span>)</h3>
+                    <div class="photo-notes-list" id="photo-notes-list">
+                        <!-- Dynamic items will load here -->
+                    </div>
+                </div>
+            </div>
+            
+            <div class="drawer-footer">
+                <button class="btn btn-danger" id="btn-delete-job"><i class="fa-solid fa-trash"></i> Delete Claim</button>
+                <button class="btn btn-secondary" id="btn-close-drawer-bottom">Close Details</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Lightbox Overlay -->
+    <div class="lightbox-overlay" id="lightbox">
+        <button class="lightbox-close" id="btn-close-lightbox"><i class="fa-solid fa-xmark"></i></button>
+        <img src="" alt="Enlarged Photo" class="lightbox-img" id="lightbox-img">
+        <div class="lightbox-caption" id="lightbox-caption">Photo note caption</div>
+    </div>
+
+    <!-- Custom JS -->
+    <script src="js/app.js"></script>
+</body>
+</html>

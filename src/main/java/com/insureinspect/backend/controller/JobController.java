@@ -146,4 +146,35 @@ public class JobController {
                     .body("Failed to upload photo: " + e.getMessage());
         }
     }
+
+    // 8. Assign/reassign a job to an investigator and date
+    @PutMapping("/{id}/assign")
+    public ResponseEntity<Job> assignJob(
+            @PathVariable Long id,
+            @RequestParam String investigatorId,
+            @RequestParam String scheduledDate) {
+        
+        Optional<Job> jobOpt = jobRepository.findById(id);
+        if (jobOpt.isEmpty()) {
+            return ResponseEntity.notFound().build();
+        }
+
+        Job job = jobOpt.get();
+        job.setInvestigatorId(investigatorId);
+        job.setScheduledDate(scheduledDate);
+        job.setUpdatedAt(LocalDateTime.now());
+        Job updatedJob = jobRepository.save(job);
+        return ResponseEntity.ok(updatedJob);
+    }
+
+    // 9. Delete a job
+    @DeleteMapping("/{id}")
+    public ResponseEntity<Void> deleteJob(@PathVariable Long id) {
+        Optional<Job> jobOpt = jobRepository.findById(id);
+        if (jobOpt.isEmpty()) {
+            return ResponseEntity.notFound().build();
+        }
+        jobRepository.deleteById(id);
+        return ResponseEntity.noContent().build();
+    }
 }
