@@ -23,6 +23,11 @@ public class PhotoNote {
     @JsonIgnore
     private SiteVisit siteVisit;
 
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "room_location_id", nullable = true)
+    @JsonIgnore
+    private RoomLocation roomLocation;
+
     private String caption;
     
     @Column(length = 4000)
@@ -134,5 +139,31 @@ public class PhotoNote {
     public void addPhoto(Photo photo) {
         photos.add(photo);
         photo.setPhotoNote(this);
+    }
+
+    public RoomLocation getRoomLocation() {
+        return roomLocation;
+    }
+
+    public void setRoomLocation(RoomLocation roomLocation) {
+        this.roomLocation = roomLocation;
+    }
+
+    public PhotoNote(RoomLocation roomLocation, String caption, String note) {
+        this.roomLocation = roomLocation;
+        this.siteVisit = roomLocation.getSiteVisit();
+        this.job = roomLocation.getSiteVisit().getJob();
+        this.caption = caption;
+        this.note = note;
+    }
+
+    public PhotoNote(RoomLocation roomLocation, String caption, String note, String location, String subLocation) {
+        this.roomLocation = roomLocation;
+        this.siteVisit = roomLocation.getSiteVisit();
+        this.job = roomLocation.getSiteVisit().getJob();
+        this.caption = caption;
+        this.note = note;
+        this.location = location;
+        this.subLocation = subLocation;
     }
 }

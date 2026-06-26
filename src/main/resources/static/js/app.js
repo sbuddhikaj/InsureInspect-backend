@@ -19,8 +19,10 @@ document.addEventListener('DOMContentLoaded', () => {
     // View Panels & Navigation
     const navDashboard = document.getElementById('nav-dashboard');
     const navUsers = document.getElementById('nav-users');
+    const navCalendar = document.getElementById('nav-calendar');
     const viewDashboard = document.getElementById('view-dashboard');
     const viewUsers = document.getElementById('view-users');
+    const viewCalendar = document.getElementById('view-calendar');
     
     // Dashboard Elements
     const claimsTableBody = document.getElementById('claims-list-body');
@@ -66,6 +68,8 @@ document.addEventListener('DOMContentLoaded', () => {
     const btnCloseDrawer = document.getElementById('btn-close-drawer');
     const btnCloseDrawerBottom = document.getElementById('btn-close-drawer-bottom');
     const btnDeleteJob = document.getElementById('btn-delete-job');
+    const btnExportPdf = document.getElementById('btn-export-pdf');
+    const btnExportExcel = document.getElementById('btn-export-excel');
     
     // Detail Data Elements
     const detailTitle = document.getElementById('detail-title');
@@ -182,8 +186,10 @@ document.addEventListener('DOMContentLoaded', () => {
         e.preventDefault();
         navDashboard.classList.add('active');
         navUsers.classList.remove('active');
+        navCalendar.classList.remove('active');
         viewDashboard.style.display = 'block';
         viewUsers.style.display = 'none';
+        viewCalendar.style.display = 'none';
         fetchClaims();
     });
 
@@ -191,9 +197,22 @@ document.addEventListener('DOMContentLoaded', () => {
         e.preventDefault();
         navUsers.classList.add('active');
         navDashboard.classList.remove('active');
+        navCalendar.classList.remove('active');
         viewUsers.style.display = 'block';
         viewDashboard.style.display = 'none';
+        viewCalendar.style.display = 'none';
         fetchUsers();
+    });
+
+    navCalendar.addEventListener('click', (e) => {
+        e.preventDefault();
+        navCalendar.classList.add('active');
+        navDashboard.classList.remove('active');
+        navUsers.classList.remove('active');
+        viewCalendar.style.display = 'block';
+        viewDashboard.style.display = 'none';
+        viewUsers.style.display = 'none';
+        renderCalendar();
     });
 
     // -------------------------------------------------------------
@@ -533,6 +552,14 @@ document.addEventListener('DOMContentLoaded', () => {
         reassignInvestigator.value = job.investigatorId;
         reassignDate.value = job.scheduledDate;
         
+        if (job.status === 'Completed' || job.status === 'In_Progress' || job.status === 'In Progress') {
+            btnExportPdf.style.display = 'inline-flex';
+            btnExportExcel.style.display = 'inline-flex';
+        } else {
+            btnExportPdf.style.display = 'none';
+            btnExportExcel.style.display = 'none';
+        }
+        
         const isNotPending = job.status !== 'Pending';
         
         // Dynamic fetch of new DOM elements
@@ -601,7 +628,107 @@ document.addEventListener('DOMContentLoaded', () => {
                 
                 const sev = sv.damageSeverity || 'Low';
 
-                // Photo Notes for this visit
+                // Control Readings HTML
+                let readingsHtml = '';
+                if (sv.moisture !== null || sv.temperature !== null || sv.humidity !== null) {
+                    readingsHtml = `
+                        <div class="readings-box mt-2 mb-2" style="display: flex; gap: 8px; flex-wrap: wrap;">
+                            ${sv.moisture !== null ? `<span class="badge" style="background-color: var(--primary); color: #fff; font-size:11px; font-weight: normal; padding: 3px 8px; border-radius: 4px;">Moisture: ${sv.moisture}%</span>` : ''}
+                            ${sv.temperature !== null ? `<span class="badge" style="background-color: var(--primary); color: #fff; font-size:11px; font-weight: normal; padding: 3px 8px; border-radius: 4px;">Temp: ${sv.temperature}°F</span>` : ''}
+                            ${sv.humidity !== null ? `<span class="badge" style="background-color: var(--primary); color: #fff; font-size:11px; font-weight: normal; padding: 3px 8px; border-radius: 4px;">Humidity: ${sv.humidity}%</span>` : ''}
+                        </div>
+                    `;
+                }
+
+                // Inspected Rooms/Locations HTML
+                let roomsListHtml = '';
+                if (sv.roomLocations && sv.roomLocations.length > 0) {
+                    let roomsHtml = '';
+                    sv.roomLocations.forEach((rl, rlIdx) => {
+                        // Equipments HTML
+                        let equipmentsHtml = '';
+                        if (rl.equipments && rl.equipments.length > 0) {
+                            let eqListHtml = '';
+                            rl.equipments.forEach(eq => {
+                                eqListHtml += `
+                                    <li style="font-size: 12px; margin-bottom: 4px; list-style-type: disc;">
+                                        <strong>${escapeHtml(eq.name)}</strong> 
+                                        ${eq.serialNumber ? `(S/N: ${escapeHtml(eq.serialNumber)})` : ''} 
+                                        - <span style="font-weight: bold; color: ${eq.status?.toUpperCase() === 'RUNNING' ? 'green' : 'red'};">${escapeHtml(eq.status)}</span>
+                                        ${eq.notes ? `<div style="color: var(--text-muted); font-size: 11px; margin-left: 10px;">${escapeHtml(eq.notes)}</div>` : ''}
+                                    </li>
+                                `;
+                            });
+                            equipmentsHtml = `
+                                <div class="room-equipments mt-2">
+                                    <strong style="font-size: 12px; color: var(--primary);"><i class="fa-solid fa-tools"></i> Deployed Equipment:</strong>
+                                    <ul style="margin: 4px 0 0 16px; padding: 0;">
+                                        ${eqListHtml}
+                                    </ul>
+                                </div>
+                            `;
+                        }
+
+                        // Photo Notes for this room
+                        let roomPhotosHtml = '';
+                        if (rl.photoNotes && rl.photoNotes.length > 0) {
+                            let photosListHtml = '';
+                            rl.photoNotes.forEach(note => {
+                                if (note.photos) {
+                                    note.photos.forEach(p => {
+                                        const cleanP = normalizePhotoUrl(p.downloadUrl);
+                                        photosListHtml += `
+                                            <div class="photo-note-item mt-2" style="display: flex; gap: 12px; border: 1px solid var(--border); padding: 8px; border-radius: 8px; margin-bottom: 8px; background: rgba(0,0,0,0.01);">
+                                                <div class="photo-thumbnail-container" data-src="${cleanP}" data-caption="${escapeHtml(note.caption)}" style="cursor: pointer; width: 60px; height: 60px; flex-shrink: 0; overflow: hidden; border-radius: 6px; border: 1px solid var(--border);">
+                                                    <img src="${cleanP}" alt="${escapeHtml(note.caption)}" loading="lazy" style="width: 100%; height: 100%; object-fit: cover;">
+                                                </div>
+                                                <div class="photo-note-info">
+                                                    <h4 style="font-size: 13px; font-weight: 600; margin: 0 0 3px 0;">
+                                                        ${escapeHtml(note.caption)}
+                                                        ${(note.location || note.subLocation) ? `
+                                                            <span style="font-size: 10px; margin-left: 6px; padding: 2px 6px; background: var(--color-completed-glow); color: var(--color-completed); border-radius: 4px; font-weight: 600; display: inline-block; border: 1px solid rgba(16, 185, 129, 0.2);">
+                                                                <i class="fa-solid fa-location-crosshairs" style="font-size: 9px;"></i> 
+                                                                ${escapeHtml(note.location || '')} ${note.location && note.subLocation ? '•' : ''} ${escapeHtml(note.subLocation || '')}
+                                                            </span>` : ''}
+                                                    </h4>
+                                                    <p style="font-size: 12px; color: var(--text-muted); margin: 0;">${escapeHtml(note.note || 'No additional note description.')}</p>
+                                                </div>
+                                            </div>
+                                        `;
+                                    });
+                                }
+                            });
+                            roomPhotosHtml = `
+                                <div class="room-photos mt-2">
+                                    <strong style="font-size: 12px; color: var(--primary);"><i class="fa-solid fa-images"></i> Room Photo Notes:</strong>
+                                    <div style="margin-top: 6px; display: flex; flex-direction: column;">
+                                        ${photosListHtml}
+                                    </div>
+                                </div>
+                            `;
+                        }
+
+                        roomsHtml += `
+                            <div class="room-card mt-2 mb-3" style="padding: 12px; border: 1px dashed var(--border); border-radius: 8px; background: #fff;">
+                                <div style="font-weight: 600; font-size: 13px; color: var(--primary); display: flex; justify-content: space-between;">
+                                    <span><i class="fa-solid fa-door-open"></i> ${escapeHtml(rl.roomType)}</span>
+                                    <span style="color: var(--text-muted); font-size: 12px;">${escapeHtml(rl.dimensions || 'Dimensions: N/A')}</span>
+                                </div>
+                                ${rl.details ? `<div style="font-size: 12px; color: var(--text-secondary); margin-top: 4px;"><strong>Notes:</strong> ${escapeHtml(rl.details)}</div>` : ''}
+                                ${equipmentsHtml}
+                                ${roomPhotosHtml}
+                            </div>
+                        `;
+                    });
+                    roomsListHtml = `
+                        <div class="visit-rooms mt-3">
+                            <span class="info-label" style="font-weight:600; color:var(--primary); font-size:12px;"><i class="fa-solid fa-door-closed"></i> Inspected Rooms & Areas</span>
+                            ${roomsHtml}
+                        </div>
+                    `;
+                }
+
+                // General Photo Notes for this visit (legacy fallback)
                 let svGalleryHtml = '';
                 if (sv.photoNotes && sv.photoNotes.length > 0) {
                     let visitPhotosListHtml = '';
@@ -630,14 +757,16 @@ document.addEventListener('DOMContentLoaded', () => {
                             });
                         }
                     });
-                    svGalleryHtml = `
-                        <div class="visit-photos-gallery mt-3">
-                            <span class="info-label" style="font-weight:600; color:var(--primary); font-size:12px;"><i class="fa-solid fa-images"></i> Visit Photos</span>
-                            <div class="photo-notes-list" style="margin-top: 8px; display: flex; flex-direction: column;">
-                                ${visitPhotosListHtml}
+                    if (visitPhotosListHtml !== '') {
+                        svGalleryHtml = `
+                            <div class="visit-photos-gallery mt-3">
+                                <span class="info-label" style="font-weight:600; color:var(--primary); font-size:12px;"><i class="fa-solid fa-images"></i> Visit Photos</span>
+                                <div class="photo-notes-list" style="margin-top: 8px; display: flex; flex-direction: column;">
+                                    ${visitPhotosListHtml}
+                                </div>
                             </div>
-                        </div>
-                    `;
+                        `;
+                    }
                 }
 
                 const gpsHtml = (sv.latitude && sv.longitude) ? 
@@ -654,6 +783,7 @@ document.addEventListener('DOMContentLoaded', () => {
                         <i class="fa-regular fa-calendar-days"></i> Checked: ${sv.visitDate}
                     </div>
                     
+                    ${readingsHtml}
                     ${firstVisitInfoHtml}
 
                     <div class="checklist-grid" style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; font-size: 12px; margin-top: 10px; border: 1px solid var(--border); padding: 8px; border-radius: 6px; background: rgba(0,0,0,0.01);">
@@ -669,6 +799,7 @@ document.addEventListener('DOMContentLoaded', () => {
                         </div>
                     </div>
 
+                    ${roomsListHtml}
                     ${svGalleryHtml}
                 `;
 
@@ -996,5 +1127,88 @@ document.addEventListener('DOMContentLoaded', () => {
             .replace(/>/g, '&gt;')
             .replace(/"/g, '&quot;')
             .replace(/'/g, '&#039;');
+    }
+
+    // Export button events
+    btnExportPdf.addEventListener('click', () => {
+        if (!selectedJob) return;
+        window.open(`/api/reports/jobs/${selectedJob.id}/pdf`, '_blank');
+    });
+
+    btnExportExcel.addEventListener('click', () => {
+        if (!selectedJob) return;
+        window.open(`/api/reports/jobs/${selectedJob.id}/excel`, '_blank');
+    });
+
+    let calendar = null;
+
+    function renderCalendar() {
+        const calendarEl = document.getElementById('calendar');
+        if (!calendarEl) return;
+
+        if (calendar) {
+            calendar.destroy();
+        }
+
+        const events = allJobs.map(job => {
+            let color = '#f0ad4e';
+            if (job.status === 'Completed') {
+                color = '#5cb85c';
+            } else if (job.status === 'In_Progress' || job.status === 'In Progress') {
+                color = '#0275d8';
+            }
+
+            const investigatorUser = allUsers.find(u => u.username === job.investigatorId);
+            const investigatorName = investigatorUser ? investigatorUser.fullName : job.investigatorId;
+
+            return {
+                id: job.id,
+                title: `${job.clientName} - ${job.title} (${investigatorName})`,
+                start: job.scheduledDate,
+                allDay: true,
+                backgroundColor: color,
+                borderColor: color,
+                extendedProps: {
+                    job: job
+                }
+            };
+        });
+
+        calendar = new FullCalendar.Calendar(calendarEl, {
+            initialView: 'dayGridMonth',
+            editable: true,
+            events: events,
+            eventClick: function(info) {
+                openDetailsDrawer(info.event.id);
+            },
+            eventDrop: function(info) {
+                const jobId = info.event.id;
+                const newDate = info.event.startStr;
+                const job = info.event.extendedProps.job;
+
+                if (!confirm(`Do you want to reschedule ${job.clientName}'s inspection to ${newDate}?`)) {
+                    info.revert();
+                    return;
+                }
+
+                fetch(`/api/jobs/${jobId}/assign?investigatorId=${job.investigatorId}&scheduledDate=${newDate}`, {
+                    method: 'PUT'
+                })
+                .then(res => {
+                    if (!res.ok) throw new Error('Reschedule failed');
+                    return res.json();
+                })
+                .then(updatedJob => {
+                    fetchClaims();
+                })
+                .catch(err => {
+                    console.error(err);
+                    alert('Failed to reschedule job.');
+                    info.revert();
+                });
+            }
+        });
+
+        calendar.render();
     }
 });

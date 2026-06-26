@@ -42,8 +42,18 @@ public class SiteVisit {
     private Double latitude;
     private Double longitude;
 
+    private Double moisture;
+    private Double temperature;
+    private Double humidity;
+
     @OneToMany(mappedBy = "siteVisit", cascade = CascadeType.ALL, orphanRemoval = true)
     private List<PhotoNote> photoNotes = new ArrayList<>();
+
+    @OneToMany(mappedBy = "siteVisit", cascade = CascadeType.ALL, orphanRemoval = true)
+    private List<RoomLocation> roomLocations = new ArrayList<>();
+
+    @OneToMany(mappedBy = "siteVisit", cascade = CascadeType.ALL, orphanRemoval = true)
+    private List<ComplianceForm> complianceForms = new ArrayList<>();
 
     public SiteVisit() {}
 
@@ -176,5 +186,55 @@ public class SiteVisit {
     public void addPhotoNote(PhotoNote photoNote) {
         photoNotes.add(photoNote);
         photoNote.setSiteVisit(this);
+    }
+
+    public Double getMoisture() {
+        return moisture;
+    }
+
+    public void setMoisture(Double moisture) {
+        this.moisture = moisture;
+    }
+
+    public Double getTemperature() {
+        return temperature;
+    }
+
+    public void setTemperature(Double temperature) {
+        this.temperature = temperature;
+    }
+
+    public Double getHumidity() {
+        return humidity;
+    }
+
+    public void setHumidity(Double humidity) {
+        this.humidity = humidity;
+    }
+
+    public List<RoomLocation> getRoomLocations() {
+        return roomLocations;
+    }
+
+    public void setRoomLocations(List<RoomLocation> roomLocations) {
+        this.roomLocations = roomLocations;
+    }
+
+    public void addRoomLocation(RoomLocation roomLocation) {
+        roomLocations.add(roomLocation);
+        roomLocation.setSiteVisit(this);
+    }
+
+    public List<ComplianceForm> getComplianceForms() {
+        return complianceForms;
+    }
+
+    public void setComplianceForms(List<ComplianceForm> complianceForms) {
+        this.complianceForms = complianceForms;
+    }
+
+    public void addComplianceForm(ComplianceForm complianceForm) {
+        complianceForms.add(complianceForm);
+        complianceForm.setSiteVisit(this);
     }
 }

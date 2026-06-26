@@ -8,6 +8,9 @@
     <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     <!-- FontAwesome Icons -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- FullCalendar CDN -->
+    <link href="https://cdn.jsdelivr.net/npm/fullcalendar@6.1.8/index.global.min.css" rel="stylesheet" />
+    <script src="https://cdn.jsdelivr.net/npm/fullcalendar@6.1.8/index.global.min.js"></script>
     <!-- Custom CSS -->
     <link rel="stylesheet" href="css/styles.css">
 </head>
@@ -48,6 +51,7 @@
             </div>
             <nav class="nav-menu">
                 <a href="#" class="nav-item active" id="nav-dashboard"><i class="fa-solid fa-chart-line"></i> Dashboard</a>
+                <a href="#" class="nav-item" id="nav-calendar"><i class="fa-solid fa-calendar-days"></i> Calendar View</a>
                 <a href="#" class="nav-item" id="nav-users"><i class="fa-solid fa-users-gear"></i> User Management</a>
                 <a href="#" class="nav-item" id="btn-refresh-nav"><i class="fa-solid fa-arrows-rotate"></i> Sync Data</a>
                 <a href="#" class="nav-item" id="btn-logout" style="margin-top: auto; color: var(--color-danger);"><i class="fa-solid fa-right-from-bracket"></i> Logout</a>
@@ -197,6 +201,22 @@
                     </div>
                 </section>
             </div>
+
+            <!-- 3. CALENDAR VIEW -->
+            <div class="view-panel" id="view-calendar" style="display: none;">
+                <!-- Header -->
+                <header class="main-header">
+                    <div class="header-title">
+                        <h1>Job Calendar Scheduling</h1>
+                        <p class="subtitle">Drag &amp; drop scheduled jobs to assign inspection dates</p>
+                    </div>
+                </header>
+
+                <!-- Calendar View Container -->
+                <section class="card content-card" style="margin-top: 30px; padding: 20px;">
+                    <div id="calendar" style="min-height: 600px;"></div>
+                </section>
+            </div>
         </main>
     </div>
 
@@ -309,6 +329,10 @@
                 <div>
                     <span class="badge" id="detail-status-badge">Pending</span>
                     <h2 id="detail-title">Claim Title</h2>
+                </div>
+                <div class="drawer-header-actions" style="margin-left: auto; margin-right: 15px; display: flex; gap: 8px;">
+                    <button class="btn btn-secondary" id="btn-export-pdf" style="font-size: 13px; padding: 6px 12px; display: none;"><i class="fa-solid fa-file-pdf" style="color: #d32f2f;"></i> Export PDF</button>
+                    <button class="btn btn-secondary" id="btn-export-excel" style="font-size: 13px; padding: 6px 12px; display: none;"><i class="fa-solid fa-file-excel" style="color: #2e7d32;"></i> Export Excel</button>
                 </div>
                 <button class="btn-close" id="btn-close-drawer"><i class="fa-solid fa-xmark"></i></button>
             </div>

@@ -4,10 +4,18 @@ import com.insureinspect.backend.model.Job;
 import com.insureinspect.backend.model.Photo;
 import com.insureinspect.backend.model.PhotoNote;
 import com.insureinspect.backend.model.SiteVisit;
+import com.insureinspect.backend.model.RoomLocation;
+import com.insureinspect.backend.model.Equipment;
 import com.insureinspect.backend.repository.JobRepository;
 import com.insureinspect.backend.repository.PhotoRepository;
 import com.insureinspect.backend.repository.PhotoNoteRepository;
 import com.insureinspect.backend.repository.SiteVisitRepository;
+import com.insureinspect.backend.repository.RoomLocationRepository;
+import com.insureinspect.backend.repository.EquipmentRepository;
+import com.insureinspect.backend.repository.ComplianceFormRepository;
+import com.insureinspect.backend.repository.InventoryItemRepository;
+import com.insureinspect.backend.model.ComplianceForm;
+import com.insureinspect.backend.model.InventoryItem;
 import com.insureinspect.backend.service.StorageService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
@@ -36,6 +44,18 @@ public class JobController {
 
     @Autowired
     private SiteVisitRepository siteVisitRepository;
+
+    @Autowired
+    private RoomLocationRepository roomLocationRepository;
+
+    @Autowired
+    private EquipmentRepository equipmentRepository;
+
+    @Autowired
+    private ComplianceFormRepository complianceFormRepository;
+
+    @Autowired
+    private InventoryItemRepository inventoryItemRepository;
 
     @Autowired
     private StorageService storageService;
@@ -340,5 +360,88 @@ public class JobController {
         photoNote.setJob(visit.getJob());
         PhotoNote savedNote = photoNoteRepository.save(photoNote);
         return ResponseEntity.status(HttpStatus.CREATED).body(savedNote);
+    }
+
+    // 16. Create a Room Location for a Site Visit
+    @PostMapping("/site-visits/{visitId}/room-locations")
+    public ResponseEntity<?> createRoomLocation(
+            @PathVariable Long visitId,
+            @RequestBody RoomLocation roomLocation) {
+        Optional<SiteVisit> visitOpt = siteVisitRepository.findById(visitId);
+        if (visitOpt.isEmpty()) {
+            return ResponseEntity.notFound().build();
+        }
+        SiteVisit visit = visitOpt.get();
+        roomLocation.setSiteVisit(visit);
+        
+        RoomLocation savedRoom = roomLocationRepository.save(roomLocation);
+        return ResponseEntity.status(HttpStatus.CREATED).body(savedRoom);
+    }
+
+    // 17. Create Equipment for a Room Location
+    @PostMapping("/room-locations/{roomId}/equipments")
+    public ResponseEntity<?> createEquipment(
+            @PathVariable Long roomId,
+            @RequestBody Equipment equipment) {
+        Optional<RoomLocation> roomOpt = roomLocationRepository.findById(roomId);
+        if (roomOpt.isEmpty()) {
+            return ResponseEntity.notFound().build();
+        }
+        RoomLocation room = roomOpt.get();
+        equipment.setRoomLocation(room);
+
+        Equipment savedEquipment = equipmentRepository.save(equipment);
+        return ResponseEntity.status(HttpStatus.CREATED).body(savedEquipment);
+    }
+
+    // 18. Create a Photo Note for a Room Location
+    @PostMapping("/room-locations/{roomId}/photo-notes")
+    public ResponseEntity<?> createRoomPhotoNote(
+            @PathVariable Long roomId,
+            @RequestBody PhotoNote photoNote) {
+        Optional<RoomLocation> roomOpt = roomLocationRepository.findById(roomId);
+        if (roomOpt.isEmpty()) {
+            return ResponseEntity.notFound().build();
+        }
+        RoomLocation room = roomOpt.get();
+        
+        photoNote.setRoomLocation(room);
+        photoNote.setSiteVisit(room.getSiteVisit());
+        photoNote.setJob(room.getSiteVisit().getJob());
+
+        PhotoNote savedNote = photoNoteRepository.save(photoNote);
+        return ResponseEntity.status(HttpStatus.CREATED).body(savedNote);
+    }
+
+    // 19. Create Compliance Form for a Site Visit
+    @PostMapping("/site-visits/{visitId}/compliance-forms")
+    public ResponseEntity<?> createComplianceForm(
+            @PathVariable Long visitId,
+            @RequestBody ComplianceForm complianceForm) {
+        Optional<SiteVisit> visitOpt = siteVisitRepository.findById(visitId);
+        if (visitOpt.isEmpty()) {
+            return ResponseEntity.notFound().build();
+        }
+        SiteVisit visit = visitOpt.get();
+        complianceForm.setSiteVisit(visit);
+
+        ComplianceForm savedForm = complianceFormRepository.save(complianceForm);
+        return ResponseEntity.status(HttpStatus.CREATED).body(savedForm);
+    }
+
+    // 20. Create Inventory Item for a Room Location
+    @PostMapping("/room-locations/{roomId}/inventory-items")
+    public ResponseEntity<?> createInventoryItem(
+            @PathVariable Long roomId,
+            @RequestBody InventoryItem inventoryItem) {
+        Optional<RoomLocation> roomOpt = roomLocationRepository.findById(roomId);
+        if (roomOpt.isEmpty()) {
+            return ResponseEntity.notFound().build();
+        }
+        RoomLocation room = roomOpt.get();
+        inventoryItem.setRoomLocation(room);
+
+        InventoryItem savedItem = inventoryItemRepository.save(inventoryItem);
+        return ResponseEntity.status(HttpStatus.CREATED).body(savedItem);
     }
 }
