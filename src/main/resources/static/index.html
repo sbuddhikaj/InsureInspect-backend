@@ -11,6 +11,8 @@
     <!-- FullCalendar CDN -->
     <link href="https://cdn.jsdelivr.net/npm/fullcalendar@6.1.8/index.global.min.css" rel="stylesheet" />
     <script src="https://cdn.jsdelivr.net/npm/fullcalendar@6.1.8/index.global.min.js"></script>
+    <!-- Chart.js CDN -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
     <!-- Custom CSS -->
     <link rel="stylesheet" href="css/styles.css">
 </head>
@@ -52,6 +54,7 @@
             <nav class="nav-menu">
                 <a href="#" class="nav-item active" id="nav-dashboard"><i class="fa-solid fa-chart-line"></i> Dashboard</a>
                 <a href="#" class="nav-item" id="nav-calendar"><i class="fa-solid fa-calendar-days"></i> Calendar View</a>
+                <a href="#" class="nav-item" id="nav-analytics"><i class="fa-solid fa-chart-pie"></i> Analytics</a>
                 <a href="#" class="nav-item" id="nav-users"><i class="fa-solid fa-users-gear"></i> User Management</a>
                 <a href="#" class="nav-item" id="btn-refresh-nav"><i class="fa-solid fa-arrows-rotate"></i> Sync Data</a>
                 <a href="#" class="nav-item" id="btn-logout" style="margin-top: auto; color: var(--color-danger);"><i class="fa-solid fa-right-from-bracket"></i> Logout</a>
@@ -215,6 +218,131 @@
                 <!-- Calendar View Container -->
                 <section class="card content-card" style="margin-top: 30px; padding: 20px;">
                     <div id="calendar" style="min-height: 600px;"></div>
+                </section>
+            </div>
+
+            <!-- 4. ANALYTICS VIEW -->
+            <div class="view-panel" id="view-analytics" style="display: none;">
+                <!-- Header -->
+                <header class="main-header">
+                    <div class="header-title">
+                        <h1>Analytics &amp; Reports</h1>
+                        <p class="subtitle">Visual insights into claims, investigator workload, and inspection trends</p>
+                    </div>
+                    <div class="header-actions">
+                        <button class="btn btn-secondary" id="btn-refresh-analytics"><i class="fa-solid fa-arrows-rotate"></i> Refresh</button>
+                    </div>
+                </header>
+
+                <!-- KPI Summary Row -->
+                <section class="metrics-grid" style="margin-top: 30px; margin-bottom: 30px;" id="analytics-kpi">
+                    <div class="card metric-card total">
+                        <div class="card-icon"><i class="fa-solid fa-briefcase"></i></div>
+                        <div class="card-data">
+                            <h3 id="an-total">0</h3>
+                            <p>Total Claims</p>
+                        </div>
+                    </div>
+                    <div class="card metric-card" style="border-left: 4px solid #8b5cf6;">
+                        <div class="card-icon" style="background: rgba(139,92,246,0.12); color:#8b5cf6;"><i class="fa-solid fa-map-location-dot"></i></div>
+                        <div class="card-data">
+                            <h3 id="an-visits">0</h3>
+                            <p>Total Site Visits</p>
+                        </div>
+                    </div>
+                    <div class="card metric-card" style="border-left: 4px solid #f59e0b;">
+                        <div class="card-icon" style="background: rgba(245,158,11,0.12); color:#f59e0b;"><i class="fa-solid fa-user-hard-hat"></i></div>
+                        <div class="card-data">
+                            <h3 id="an-investigators">0</h3>
+                            <p>Active Investigators</p>
+                        </div>
+                    </div>
+                    <div class="card metric-card" style="border-left: 4px solid #10b981;">
+                        <div class="card-icon" style="background: rgba(16,185,129,0.12); color:#10b981;"><i class="fa-solid fa-percent"></i></div>
+                        <div class="card-data">
+                            <h3 id="an-completion-rate">0%</h3>
+                            <p>Completion Rate</p>
+                        </div>
+                    </div>
+                </section>
+
+                <!-- Charts Grid -->
+                <div class="analytics-charts-grid">
+                    <!-- Claims Status Donut -->
+                    <div class="card content-card analytics-chart-card">
+                        <div class="card-header">
+                            <h2><i class="fa-solid fa-chart-pie" style="color: var(--primary);"></i> Claims by Status</h2>
+                        </div>
+                        <div style="position: relative; height: 280px; display: flex; align-items: center; justify-content: center;">
+                            <canvas id="chart-status"></canvas>
+                        </div>
+                    </div>
+
+                    <!-- Investigator Workload Bar -->
+                    <div class="card content-card analytics-chart-card">
+                        <div class="card-header">
+                            <h2><i class="fa-solid fa-users" style="color: var(--primary);"></i> Investigator Workload</h2>
+                        </div>
+                        <div style="position: relative; height: 280px;">
+                            <canvas id="chart-investigator"></canvas>
+
+                        </div>
+                    </div>
+
+                    <!-- Monthly Claims Trend Line -->
+                    <div class="card content-card analytics-chart-card" style="grid-column: 1 / -1;">
+                        <div class="card-header">
+                            <h2><i class="fa-solid fa-chart-line" style="color: var(--primary);"></i> Monthly Claims Trend</h2>
+                        </div>
+                        <div style="position: relative; height: 280px;">
+                            <canvas id="chart-monthly"></canvas>
+                        </div>
+                    </div>
+
+                    <!-- Site Visits per Investigator -->
+                    <div class="card content-card analytics-chart-card">
+                        <div class="card-header">
+                            <h2><i class="fa-solid fa-map-pin" style="color: var(--primary);"></i> Visits per Investigator</h2>
+                        </div>
+                        <div style="position: relative; height: 280px;">
+                            <canvas id="chart-visits"></canvas>
+                        </div>
+                    </div>
+
+                    <!-- Damage Type Distribution -->
+                    <div class="card content-card analytics-chart-card">
+                        <div class="card-header">
+                            <h2><i class="fa-solid fa-house-crack" style="color: var(--primary);"></i> Damage Type Distribution</h2>
+                        </div>
+                        <div style="position: relative; height: 280px; display: flex; align-items: center; justify-content: center;">
+                            <canvas id="chart-damage"></canvas>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Top Claims Table -->
+                <section class="card content-card" style="margin-top: 24px;">
+                    <div class="card-header">
+                        <h2><i class="fa-solid fa-trophy" style="color: var(--primary);"></i> Recent Completed Claims</h2>
+                    </div>
+                    <div class="table-responsive">
+                        <table class="claims-table" id="analytics-completed-table">
+                            <thead>
+                                <tr>
+                                    <th>Claim ID</th>
+                                    <th>Client</th>
+                                    <th>Title</th>
+                                    <th>Investigator</th>
+                                    <th>Site Visits</th>
+                                    <th>Scheduled Date</th>
+                                    <th>Export</th>
+                                </tr>
+                            </thead>
+                            <tbody id="analytics-completed-body">
+                                <tr><td colspan="7" class="loading-state"><i class="fa-solid fa-circle-notch fa-spin"></i> Loading...</td></tr>
+                            </tbody>
+                        </table>
+                    </div>
                 </section>
             </div>
         </main>

@@ -25,6 +25,9 @@ public class ComplianceForm {
     private boolean customerAuthorized;
     private String authorizedSignatureName;
 
+    @Column(length = 2000)
+    private String notes;
+
     public ComplianceForm() {}
 
     public ComplianceForm(SiteVisit siteVisit, String uuid, String formType) {
@@ -95,5 +98,13 @@ public class ComplianceForm {
 
     public void setAuthorizedSignatureName(String authorizedSignatureName) {
         this.authorizedSignatureName = authorizedSignatureName;
+    }
+
+    public String getNotes() {
+        return notes;
+    }
+
+    public void setNotes(String notes) {
+        this.notes = notes;
     }
 }

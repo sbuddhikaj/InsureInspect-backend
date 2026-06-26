@@ -108,6 +108,12 @@ document.addEventListener('DOMContentLoaded', () => {
     
     // Refresh Nav Button
     const btnRefreshNav = document.getElementById('btn-refresh-nav');
+    const navAnalytics = document.getElementById('nav-analytics');
+    const viewAnalytics = document.getElementById('view-analytics');
+    const btnRefreshAnalytics = document.getElementById('btn-refresh-analytics');
+
+    // Chart instances (destroy before recreating)
+    let chartStatus = null, chartInvestigator = null, chartMonthly = null, chartVisits = null, chartDamage = null;
 
     // -------------------------------------------------------------
     // Session / Auth Validation
@@ -187,9 +193,11 @@ document.addEventListener('DOMContentLoaded', () => {
         navDashboard.classList.add('active');
         navUsers.classList.remove('active');
         navCalendar.classList.remove('active');
+        navAnalytics.classList.remove('active');
         viewDashboard.style.display = 'block';
         viewUsers.style.display = 'none';
         viewCalendar.style.display = 'none';
+        viewAnalytics.style.display = 'none';
         fetchClaims();
     });
 
@@ -198,9 +206,11 @@ document.addEventListener('DOMContentLoaded', () => {
         navUsers.classList.add('active');
         navDashboard.classList.remove('active');
         navCalendar.classList.remove('active');
+        navAnalytics.classList.remove('active');
         viewUsers.style.display = 'block';
         viewDashboard.style.display = 'none';
         viewCalendar.style.display = 'none';
+        viewAnalytics.style.display = 'none';
         fetchUsers();
     });
 
@@ -209,10 +219,29 @@ document.addEventListener('DOMContentLoaded', () => {
         navCalendar.classList.add('active');
         navDashboard.classList.remove('active');
         navUsers.classList.remove('active');
+        navAnalytics.classList.remove('active');
         viewCalendar.style.display = 'block';
         viewDashboard.style.display = 'none';
         viewUsers.style.display = 'none';
+        viewAnalytics.style.display = 'none';
         renderCalendar();
+    });
+
+    navAnalytics.addEventListener('click', (e) => {
+        e.preventDefault();
+        navAnalytics.classList.add('active');
+        navDashboard.classList.remove('active');
+        navUsers.classList.remove('active');
+        navCalendar.classList.remove('active');
+        viewAnalytics.style.display = 'block';
+        viewDashboard.style.display = 'none';
+        viewUsers.style.display = 'none';
+        viewCalendar.style.display = 'none';
+        renderAnalytics();
+    });
+
+    btnRefreshAnalytics && btnRefreshAnalytics.addEventListener('click', () => {
+        renderAnalytics();
     });
 
     // -------------------------------------------------------------
@@ -654,7 +683,7 @@ document.addEventListener('DOMContentLoaded', () => {
                                     <li style="font-size: 12px; margin-bottom: 4px; list-style-type: disc;">
                                         <strong>${escapeHtml(eq.name)}</strong> 
                                         ${eq.serialNumber ? `(S/N: ${escapeHtml(eq.serialNumber)})` : ''} 
-                                        - <span style="font-weight: bold; color: ${eq.status?.toUpperCase() === 'RUNNING' ? 'green' : 'red'};">${escapeHtml(eq.status)}</span>
+                                        - <span style="font-weight: bold; color: ${eq.status?.toUpperCase() === 'RUNNING' ? 'green' : 'red'};"><strong>${escapeHtml(eq.status)}</strong></span>
                                         ${eq.notes ? `<div style="color: var(--text-muted); font-size: 11px; margin-left: 10px;">${escapeHtml(eq.notes)}</div>` : ''}
                                     </li>
                                 `;
@@ -665,6 +694,31 @@ document.addEventListener('DOMContentLoaded', () => {
                                     <ul style="margin: 4px 0 0 16px; padding: 0;">
                                         ${eqListHtml}
                                     </ul>
+                                </div>
+                            `;
+                        }
+
+                        // Inventory Items for this room
+                        let inventoryHtml = '';
+                        if (rl.inventoryItems && rl.inventoryItems.length > 0) {
+                            let invRowsHtml = '';
+                            rl.inventoryItems.forEach(item => {
+                                const lossClass = item.lossType && item.lossType.toLowerCase().includes('non') ? 'non-salvageable' : 'salvageable';
+                                invRowsHtml += `
+                                    <div class="inventory-item-row">
+                                        <span class="inv-item-name">${escapeHtml(item.name)}</span>
+                                        <div class="inv-item-meta">
+                                            ${item.category ? `<span class="inv-badge category">${escapeHtml(item.category)}</span>` : ''}
+                                            <span class="inv-badge qty">x${item.quantity || 1}</span>
+                                            ${item.lossType ? `<span class="inv-badge ${lossClass}">${escapeHtml(item.lossType)}</span>` : ''}
+                                        </div>
+                                    </div>
+                                `;
+                            });
+                            inventoryHtml = `
+                                <div class="inventory-summary-box mt-2">
+                                    <span class="inv-label"><i class="fa-solid fa-boxes-stacked"></i> Cataloged Inventory (${rl.inventoryItems.length} items)</span>
+                                    <div class="inventory-items-list">${invRowsHtml}</div>
                                 </div>
                             `;
                         }
@@ -716,6 +770,7 @@ document.addEventListener('DOMContentLoaded', () => {
                                 </div>
                                 ${rl.details ? `<div style="font-size: 12px; color: var(--text-secondary); margin-top: 4px;"><strong>Notes:</strong> ${escapeHtml(rl.details)}</div>` : ''}
                                 ${equipmentsHtml}
+                                ${inventoryHtml}
                                 ${roomPhotosHtml}
                             </div>
                         `;
@@ -798,6 +853,31 @@ document.addEventListener('DOMContentLoaded', () => {
                             ${escapeHtml(sv.notes || 'No notes submitted for this visit.')}
                         </div>
                     </div>
+
+                    ${(() => {
+                        // Compliance Forms HTML
+                        if (!sv.complianceForms || sv.complianceForms.length === 0) return '';
+                        let compItemsHtml = '';
+                        sv.complianceForms.forEach(cf => {
+                            compItemsHtml += `
+                                <div class="compliance-form-item">
+                                    <div style="font-weight: 600; color: var(--text-primary); font-size: 12px;">${escapeHtml(cf.formType || 'Compliance Form')}</div>
+                                    <div class="compliance-chips">
+                                        <span class="comp-chip ${cf.preExistingDamage ? 'yes' : 'no'}"><i class="fa-solid ${cf.preExistingDamage ? 'fa-circle-check' : 'fa-circle-xmark'}"></i> Pre-existing Damage: ${cf.preExistingDamage ? 'Yes' : 'No'}</span>
+                                        <span class="comp-chip ${cf.safetyCheckPassed ? 'yes' : 'no'}"><i class="fa-solid ${cf.safetyCheckPassed ? 'fa-shield-check' : 'fa-shield-xmark'}"></i> Safety Check: ${cf.safetyCheckPassed ? 'Passed' : 'Failed'}</span>
+                                        <span class="comp-chip ${cf.customerAuthorized ? 'yes' : 'no'}"><i class="fa-solid ${cf.customerAuthorized ? 'fa-signature' : 'fa-circle-xmark'}"></i> Authorized: ${cf.customerAuthorized ? escapeHtml(cf.authorizedSignatureName || 'Yes') : 'Not Authorized'}</span>
+                                        ${cf.notes ? `<span class="comp-chip neutral"><i class="fa-solid fa-note-sticky"></i> ${escapeHtml(cf.notes)}</span>` : ''}
+                                    </div>
+                                </div>
+                            `;
+                        });
+                        return `
+                            <div class="compliance-summary-box mt-3">
+                                <span class="comp-label"><i class="fa-solid fa-clipboard-list"></i> Mitigation Compliance (${sv.complianceForms.length} form${sv.complianceForms.length > 1 ? 's' : ''})</span>
+                                ${compItemsHtml}
+                            </div>
+                        `;
+                    })()} 
 
                     ${roomsListHtml}
                     ${svGalleryHtml}
@@ -1210,5 +1290,267 @@ document.addEventListener('DOMContentLoaded', () => {
         });
 
         calendar.render();
+    }
+
+    // -------------------------------------------------------------
+    // Analytics / Reports View
+    // -------------------------------------------------------------
+
+    function renderAnalytics() {
+        if (allJobs.length === 0) {
+            // Fetch jobs first if not loaded
+            fetch('/api/jobs')
+                .then(res => res.json())
+                .then(data => {
+                    allJobs = data;
+                    buildAnalyticsCharts();
+                })
+                .catch(err => console.error(err));
+        } else {
+            buildAnalyticsCharts();
+        }
+    }
+
+    function buildAnalyticsCharts() {
+        const jobs = allJobs;
+        const users = allUsers;
+
+        // --- KPI Values ---
+        const total = jobs.length;
+        const completed = jobs.filter(j => j.status === 'Completed').length;
+        const totalVisits = jobs.reduce((acc, j) => acc + (j.siteVisits ? j.siteVisits.length : 0), 0);
+        const activeInvestigators = new Set(jobs.filter(j => j.investigatorId).map(j => j.investigatorId)).size;
+        const completionRate = total > 0 ? Math.round((completed / total) * 100) : 0;
+
+        document.getElementById('an-total').textContent = total;
+        document.getElementById('an-visits').textContent = totalVisits;
+        document.getElementById('an-investigators').textContent = activeInvestigators;
+        document.getElementById('an-completion-rate').textContent = completionRate + '%';
+
+        // --- Status Donut Chart ---
+        const pending = jobs.filter(j => j.status === 'Pending').length;
+        const inProgress = jobs.filter(j => j.status === 'In_Progress' || j.status === 'In Progress').length;
+
+        if (chartStatus) chartStatus.destroy();
+        const ctxStatus = document.getElementById('chart-status');
+        if (ctxStatus) {
+            chartStatus = new Chart(ctxStatus, {
+                type: 'doughnut',
+                data: {
+                    labels: ['Pending', 'In Progress', 'Completed'],
+                    datasets: [{
+                        data: [pending, inProgress, completed],
+                        backgroundColor: ['rgba(245,158,11,0.85)', 'rgba(59,130,246,0.85)', 'rgba(16,185,129,0.85)'],
+                        borderColor: ['#f59e0b', '#3b82f6', '#10b981'],
+                        borderWidth: 2,
+                        hoverOffset: 6
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: { position: 'bottom', labels: { color: '#9ca3af', font: { family: 'Outfit', size: 12 }, padding: 15 } }
+                    },
+                    cutout: '65%'
+                }
+            });
+        }
+
+        // --- Investigator Workload Bar Chart ---
+        const investMap = {};
+        jobs.forEach(j => {
+            if (!j.investigatorId) return;
+            const user = users.find(u => u.username === j.investigatorId);
+            const label = user ? user.fullName : j.investigatorId;
+            investMap[label] = (investMap[label] || 0) + 1;
+        });
+        const investLabels = Object.keys(investMap);
+        const investData = Object.values(investMap);
+
+        if (chartInvestigator) chartInvestigator.destroy();
+        const ctxInv = document.getElementById('chart-investigator');
+        if (ctxInv) {
+            chartInvestigator = new Chart(ctxInv, {
+                type: 'bar',
+                data: {
+                    labels: investLabels,
+                    datasets: [{
+                        label: 'Assigned Claims',
+                        data: investData,
+                        backgroundColor: 'rgba(99,102,241,0.75)',
+                        borderColor: '#6366f1',
+                        borderWidth: 2,
+                        borderRadius: 6
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: { legend: { display: false } },
+                    scales: {
+                        x: { ticks: { color: '#9ca3af', font: { family: 'Outfit' } }, grid: { color: 'rgba(255,255,255,0.04)' } },
+                        y: { beginAtZero: true, ticks: { color: '#9ca3af', font: { family: 'Outfit' }, stepSize: 1 }, grid: { color: 'rgba(255,255,255,0.06)' } }
+                    }
+                }
+            });
+        }
+
+        // --- Monthly Claims Trend Line ---
+        const monthMap = {};
+        jobs.forEach(j => {
+            if (!j.scheduledDate) return;
+            const monthKey = j.scheduledDate.substring(0, 7); // YYYY-MM
+            monthMap[monthKey] = (monthMap[monthKey] || 0) + 1;
+        });
+        const sortedMonths = Object.keys(monthMap).sort();
+        const monthlyData = sortedMonths.map(m => monthMap[m]);
+        const monthLabels = sortedMonths.map(m => {
+            const [yr, mo] = m.split('-');
+            return new Date(+yr, +mo - 1, 1).toLocaleString('default', { month: 'short', year: 'numeric' });
+        });
+
+        if (chartMonthly) chartMonthly.destroy();
+        const ctxMonthly = document.getElementById('chart-monthly');
+        if (ctxMonthly) {
+            chartMonthly = new Chart(ctxMonthly, {
+                type: 'line',
+                data: {
+                    labels: monthLabels.length > 0 ? monthLabels : ['No Data'],
+                    datasets: [{
+                        label: 'Claims Scheduled',
+                        data: monthlyData.length > 0 ? monthlyData : [0],
+                        fill: true,
+                        backgroundColor: 'rgba(99,102,241,0.12)',
+                        borderColor: '#6366f1',
+                        borderWidth: 2.5,
+                        pointBackgroundColor: '#6366f1',
+                        pointRadius: 5,
+                        tension: 0.4
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: { legend: { display: false } },
+                    scales: {
+                        x: { ticks: { color: '#9ca3af', font: { family: 'Outfit' } }, grid: { color: 'rgba(255,255,255,0.04)' } },
+                        y: { beginAtZero: true, ticks: { color: '#9ca3af', font: { family: 'Outfit' }, stepSize: 1 }, grid: { color: 'rgba(255,255,255,0.06)' } }
+                    }
+                }
+            });
+        }
+
+        // --- Site Visits per Investigator Polar/Bar ---
+        const visitInvestMap = {};
+        jobs.forEach(j => {
+            if (!j.investigatorId) return;
+            const user = users.find(u => u.username === j.investigatorId);
+            const label = user ? user.fullName : j.investigatorId;
+            visitInvestMap[label] = (visitInvestMap[label] || 0) + (j.siteVisits ? j.siteVisits.length : 0);
+        });
+        const visitLabels = Object.keys(visitInvestMap);
+        const visitData = Object.values(visitInvestMap);
+
+        if (chartVisits) chartVisits.destroy();
+        const ctxVisits = document.getElementById('chart-visits');
+        if (ctxVisits) {
+            chartVisits = new Chart(ctxVisits, {
+                type: 'bar',
+                data: {
+                    labels: visitLabels,
+                    datasets: [{
+                        label: 'Site Visits',
+                        data: visitData,
+                        backgroundColor: 'rgba(16,185,129,0.75)',
+                        borderColor: '#10b981',
+                        borderWidth: 2,
+                        borderRadius: 6
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: { legend: { display: false } },
+                    scales: {
+                        x: { ticks: { color: '#9ca3af', font: { family: 'Outfit' } }, grid: { color: 'rgba(255,255,255,0.04)' } },
+                        y: { beginAtZero: true, ticks: { color: '#9ca3af', font: { family: 'Outfit' }, stepSize: 1 }, grid: { color: 'rgba(255,255,255,0.06)' } }
+                    }
+                }
+            });
+        }
+
+        // --- Damage Type Distribution Radar/Doughnut ---
+        let structCount = 0, roofCount = 0, waterCount = 0, noneCount = 0;
+        jobs.forEach(j => {
+            if (j.structuralDamage) structCount++;
+            if (j.roofDamage) roofCount++;
+            if (j.waterDamage) waterCount++;
+            if (!j.structuralDamage && !j.roofDamage && !j.waterDamage) noneCount++;
+        });
+
+        if (chartDamage) chartDamage.destroy();
+        const ctxDamage = document.getElementById('chart-damage');
+        if (ctxDamage) {
+            chartDamage = new Chart(ctxDamage, {
+                type: 'doughnut',
+                data: {
+                    labels: ['Structural', 'Roof', 'Water', 'No Damage Flagged'],
+                    datasets: [{
+                        data: [structCount, roofCount, waterCount, noneCount],
+                        backgroundColor: [
+                            'rgba(239,68,68,0.8)',
+                            'rgba(245,158,11,0.8)',
+                            'rgba(59,130,246,0.8)',
+                            'rgba(107,114,128,0.5)'
+                        ],
+                        borderColor: ['#ef4444', '#f59e0b', '#3b82f6', '#6b7280'],
+                        borderWidth: 2,
+                        hoverOffset: 6
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: { position: 'bottom', labels: { color: '#9ca3af', font: { family: 'Outfit', size: 11 }, padding: 12 } }
+                    },
+                    cutout: '60%'
+                }
+            });
+        }
+
+        // --- Completed Claims Table ---
+        const completedBody = document.getElementById('analytics-completed-body');
+        if (completedBody) {
+            const completedJobs = jobs
+                .filter(j => j.status === 'Completed')
+                .sort((a, b) => (b.id - a.id))
+                .slice(0, 10);
+
+            if (completedJobs.length === 0) {
+                completedBody.innerHTML = `<tr><td colspan="7" class="empty-state"><i class="fa-solid fa-folder-open" style="font-size: 22px; display: block; margin-bottom: 8px; color: var(--text-muted);"></i>No completed claims yet.</td></tr>`;
+            } else {
+                completedBody.innerHTML = completedJobs.map(j => {
+                    const user = users.find(u => u.username === j.investigatorId);
+                    const investigatorName = user ? user.fullName : (j.investigatorId || 'Unassigned');
+                    const visitCount = j.siteVisits ? j.siteVisits.length : 0;
+                    return `
+                        <tr>
+                            <td><strong>#${j.id}</strong></td>
+                            <td>${escapeHtml(j.clientName)}</td>
+                            <td>${escapeHtml(j.title)}</td>
+                            <td>${escapeHtml(investigatorName)}</td>
+                            <td><span class="badge" style="background:rgba(139,92,246,0.15);color:#a78bfa;border:1px solid rgba(139,92,246,0.25);">${visitCount}</span></td>
+                            <td><i class="fa-regular fa-calendar-days"></i> ${j.scheduledDate || 'N/A'}</td>
+                            <td style="display:flex; gap:6px;">
+                                <button onclick="window.open('/api/reports/jobs/${j.id}/pdf','_blank')" class="btn btn-secondary btn-icon-only" style="font-size:11px;padding:4px 8px;"><i class="fa-solid fa-file-pdf" style="color:#ef4444;"></i> PDF</button>
+                                <button onclick="window.open('/api/reports/jobs/${j.id}/excel','_blank')" class="btn btn-secondary btn-icon-only" style="font-size:11px;padding:4px 8px;"><i class="fa-solid fa-file-excel" style="color:#22c55e;"></i> Excel</button>
+                            </td>
+                        </tr>
+                    `;
+                }).join('');
+            }
+        }
     }
 });
