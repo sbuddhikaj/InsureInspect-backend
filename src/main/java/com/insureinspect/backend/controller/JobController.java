@@ -378,6 +378,31 @@ public class JobController {
         return ResponseEntity.status(HttpStatus.CREATED).body(savedRoom);
     }
 
+    // 16b. Get a single Room Location by ID
+    @GetMapping("/room-locations/{roomId}")
+    public ResponseEntity<RoomLocation> getRoomLocation(@PathVariable Long roomId) {
+        return roomLocationRepository.findById(roomId)
+                .map(ResponseEntity::ok)
+                .orElse(ResponseEntity.notFound().build());
+    }
+
+    // 16c. Update an existing Room Location (roomType, dimensions, details)
+    @PutMapping("/room-locations/{roomId}")
+    public ResponseEntity<?> updateRoomLocation(
+            @PathVariable Long roomId,
+            @RequestBody RoomLocation updateData) {
+        Optional<RoomLocation> roomOpt = roomLocationRepository.findById(roomId);
+        if (roomOpt.isEmpty()) {
+            return ResponseEntity.notFound().build();
+        }
+        RoomLocation room = roomOpt.get();
+        if (updateData.getRoomType() != null) room.setRoomType(updateData.getRoomType());
+        if (updateData.getDimensions() != null) room.setDimensions(updateData.getDimensions());
+        if (updateData.getDetails() != null) room.setDetails(updateData.getDetails());
+        RoomLocation savedRoom = roomLocationRepository.save(room);
+        return ResponseEntity.ok(savedRoom);
+    }
+
     // 17. Create Equipment for a Room Location
     @PostMapping("/room-locations/{roomId}/equipments")
     public ResponseEntity<?> createEquipment(
